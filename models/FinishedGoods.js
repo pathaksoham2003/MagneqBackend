@@ -1,0 +1,8 @@
+import mongoose from "../utils/db.js";
+
+const finishedGoodsSchema = new mongoose.Schema({
+  raw_materials: [{ type: mongoose.Schema.Types.ObjectId, ref: 'RawMaterials' }],
+  units: Number
+});
+
+export default mongoose.model('FinishedGoods', finishedGoodsSchema);

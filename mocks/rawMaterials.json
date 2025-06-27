@@ -1,0 +1,117 @@
+{
+  "data": [
+    {
+      "class_type": "A",
+      "quantity": 50,
+      "other_specification": {
+        "material": "Cast Iron",
+        "weight": "7kg",
+        "dimension": "120x80x60mm"
+      },
+      "casting_product": "Gearbox Housing"
+    },
+    {
+      "class_type": "A",
+      "quantity": 30,
+      "other_specification": {
+        "material": "Aluminum",
+        "weight": "3.2kg",
+        "coating": "Anodized"
+      },
+      "casting_product": "Input Flange"
+    },
+    {
+      "class_type": "A",
+      "quantity": 20,
+      "other_specification": {
+        "material": "Steel",
+        "molding_type": "Sand Cast",
+        "finish": "Raw"
+      },
+      "casting_product": "Bearing Cover"
+    },
+
+    {
+      "class_type": "B",
+      "quantity": 70,
+      "product": "Sun Gear",
+      "status": "Preprocessing"
+    },
+    {
+      "class_type": "B",
+      "quantity": 40,
+      "product": "Shaft",
+      "status": "Hobbing"
+    },
+    {
+      "class_type": "B",
+      "quantity": 35,
+      "product": "Final Drive Gear",
+      "status": "Heat Treatment"
+    },
+    {
+      "class_type": "B",
+      "quantity": 60,
+      "product": "Gearbox Cover",
+      "status": "FG"
+    },
+
+    {
+      "class_type": "C",
+      "quantity": 15,
+      "other_specification": {
+        "set_type": "Lubricant Kit",
+        "contains": "Gear Oil, Grease, Applicator"
+      },
+      "select_items": [
+        {
+          "item_name": "Gear Oil",
+          "grade": "EP90"
+        },
+        {
+          "item_name": "High Temp Grease",
+          "grade": "NLGI-2"
+        }
+      ],
+      "expiry_date": "2026-01-01"
+    },
+    {
+      "class_type": "C",
+      "quantity": 10,
+      "other_specification": {
+        "set_type": "Accessory Kit",
+        "contains": "Mounting bolts, Seals, Keys"
+      },
+      "select_items": [
+        {
+          "item_name": "M12 Mounting Bolt",
+          "quantity": 6
+        },
+        {
+          "item_name": "Oil Seal",
+          "size": "30x50x10"
+        }
+      ],
+      "expiry_date": "2025-12-15"
+    },
+    {
+      "class_type": "C",
+      "quantity": 8,
+      "other_specification": {
+        "set_type": "Spacer Kit",
+        "material": "Hardened Steel"
+      },
+      "select_items": [
+        {
+          "description": "Spacer Ring",
+          "thickness": "2mm"
+        },
+        {
+          "description": "Lock Washer",
+          "size": "M14"
+        }
+      ],
+      "expiry_date": "2026-05-30"
+    }
+  ]
+}
