@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPurchaseOrder, getAllPurchaseOrders, updatePurchaseOrder } from '../controllers/purchaseOrders.js';
+import { createPurchaseOrder, getAllPurchaseOrders, getPurchaseOrderItems, updatePurchaseOrder } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
 
@@ -63,10 +63,46 @@ const router = express.Router();
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/PurchaseOrder'
+ *             type: object
+ *             required:
+ *               - vendor_name
+ *               - purchasing_date
+ *               - items
+ *             properties:
+ *               vendor_name:
+ *                 type: string
+ *                 example: "ABC Supplier Pvt Ltd"
+ *               purchasing_date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-06-29"
+ *               items:
+ *                 type: array
+ *                 minItems: 1
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - raw_material_id
+ *                     - quantity
+ *                   properties:
+ *                     raw_material_id:
+ *                       type: string
+ *                       example: "60d21b4667d0d8992e610c85"
+ *                     quantity:
+ *                       type: number
+ *                       example: 100
  *     responses:
  *       201:
  *         description: Purchase order created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 order:
+ *                   $ref: '#/components/schemas/PurchaseOrder'
  *       400:
  *         description: Validation error
  *       500:
@@ -146,5 +182,55 @@ router.get('/', getAllPurchaseOrders);
  *         description: Internal server error
  */
 router.put('/:id', updatePurchaseOrder);
+
+/**
+ * @swagger
+ * /api/purchase_order/{po_number}/items:
+ *   get:
+ *     summary: Get items of a purchase order with max_allowed quantity
+ *     tags: [PurchaseOrder]
+ *     parameters:
+ *       - in: path
+ *         name: po_number
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Purchase order number
+ *       - in: query
+ *         name: class_type
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [A, B, C]
+ *         description: Filter items by raw material class type
+ *     responses:
+ *       200:
+ *         description: List of items with max allowed quantity
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 po_number:
+ *                   type: integer
+ *                 total_items:
+ *                   type: integer
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       item_id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       max_allowed:
+ *                         type: number
+ *       404:
+ *         description: Purchase order not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:po_number/items', getPurchaseOrderItems);
 
 export default router;

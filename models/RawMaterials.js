@@ -1,24 +1,31 @@
-import mongoose from '../utils/db.js';
+import mongoose from "../utils/db.js";
 
 const rawMaterialSchema = new mongoose.Schema({
   class_type: {
     type: String,
-    enum: ['A', 'B', 'C'],
+    enum: ["A", "B", "C"],
     default: null,
   },
+  model: {
+    type: String,
+  },
   other_specification: {
-    type: mongoose.Schema.Types.Mixed, 
+    type: mongoose.Schema.Types.Mixed,
     default: null,
   },
   quantity: {
     type: Number,
-    required: true, // ✅ Never null
+    required: true,
+  },
+  min_quantity: {
+    type: Number,
+    default: 0,
   },
   casting_product: {
     type: String,
     default: null,
   },
-  status: {
+  type: {
     type: String,
     default: null,
   },
@@ -27,7 +34,7 @@ const rawMaterialSchema = new mongoose.Schema({
     default: null,
   },
   select_items: {
-    type: [mongoose.Schema.Types.Mixed], 
+    type: [mongoose.Schema.Types.Mixed],
     default: [],
   },
   created_at: {
@@ -44,4 +51,4 @@ const rawMaterialSchema = new mongoose.Schema({
   },
 });
 
-export default mongoose.model('RawMaterials', rawMaterialSchema);
+export default mongoose.model("RawMaterials", rawMaterialSchema);

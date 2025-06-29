@@ -18,8 +18,10 @@ import swaggerSpec from './swagger/swagger.js';
 import userRouter from "./routes/user.js";
 import rawMaterialRoutes from './routes/rawMaterials.js';
 import purchaseOrderRoutes from './routes/purchaseOrders.js';
-import stockRoutes from './routes/stockRoutes.js';
 import qualityRoutes from './routes/quality.js';
+import finishedGoodsRoutes from './routes/finishedGoods.js';
+import salesRoutes from './routes/sales.js';
+import productionRoutes from './routes/production.js';
 
 dotenv.config();
 
@@ -38,8 +40,10 @@ app.get('/', (req, res) => res.send('ERP Server Running...'));
 app.use('/api', userRouter);
 app.use('/api/raw_material', rawMaterialRoutes);
 app.use('/api/purchase_order', purchaseOrderRoutes);
-app.use('/api/stock', stockRoutes);
 app.use('/api/quality', qualityRoutes);
+app.use('/api/finished_goods', finishedGoodsRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/production', productionRoutes);
 
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 

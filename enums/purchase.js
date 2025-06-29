@@ -1,0 +1,10 @@
+export const PO_STATUS = {
+  PENDING: "PENDING",
+  COMPLETE: "COMPLETE",
+  REJECTED: "REJECTED",
+};
+
+export const PO_ITEM_STATUS = {
+  PENDING: "PENDING",
+  RECIEVED: "RECIEVED",
+};

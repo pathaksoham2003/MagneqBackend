@@ -5,7 +5,8 @@ import {
   getRawMaterialById,
   createRawMaterial,
   updateRawMaterial,
-  deleteRawMaterial
+  deleteRawMaterial,
+  getFilteredRawMaterials
 } from '../controllers/rawMaterials.js';
 
 /**
@@ -91,6 +92,40 @@ import {
  *                     $ref: '#/components/schemas/RawMaterial'
  */
 router.get('/', getAllRawMaterials);
+
+/**
+ * @swagger
+ * /api/raw_material/search:
+ *   get:
+ *     summary: Get filtered raw materials
+ *     tags: [RawMaterial]
+ *     parameters:
+ *       - in: query
+ *         name: class_type
+ *         schema:
+ *           type: string
+ *           enum: [A, B, C]
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: model
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: product
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: casting_product
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of filtered raw materials
+ */
+router.get('/search', getFilteredRawMaterials);
 
 /**
  * @swagger

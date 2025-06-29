@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Alice Customer",
+    "role": "CUSTOMER",
+    "password": "$2b$10$T7gYI1Ce3Z52PZYgWZx9EulMb77Z8puYpHzyvC0bbx97YIgqzN1nK",
+    "user_name": "alice",
+    "created_at": "2024-06-01T10:00:00.000Z",
+    "updated_at": "2024-06-01T10:00:00.000Z"
+  },
+  {
+    "name": "Bob Sales",
+    "role": "SALES_EXEC",
+    "password": "$2b$10$speFq3qpOmVaeiQkzU03o.BK2ytjDFwZPxRSZnZk/h3EPL4vNPa0y",
+    "user_name": "bob",
+    "created_at": "2024-06-01T11:00:00.000Z",
+    "updated_at": "2024-06-01T11:00:00.000Z"
+  },
+  {
+    "name": "Charlie Admin",
+    "role": "ADMIN",
+    "password": "$2b$10$DPDc5azssMf.KHP5w0DN1u93R0WZf3gNHRU97cSDD83FiDCPgGhxW",
+    "user_name": "charlie",
+    "created_at": "2024-06-01T12:00:00.000Z",
+    "updated_at": "2024-06-01T12:00:00.000Z"
+  }
+]

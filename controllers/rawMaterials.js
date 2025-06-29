@@ -1,7 +1,6 @@
 import RawMaterial from "../models/RawMaterials.js";
 import {filterFieldsByClass, validateFieldsByClass} from "../utils/helper.js";
 
-// @desc Get specific raw material by ID
 export const getRawMaterialById = async (req, res) => {
   try {
     const material = await RawMaterial.findById(req.params.id);
@@ -9,6 +8,35 @@ export const getRawMaterialById = async (req, res) => {
     res.json(material);
   } catch (err) {
     res.status(500).json({error: "Error fetching raw material"});
+  }
+};
+
+export const getFilteredRawMaterials = async (req, res) => {
+  try {
+    const {
+      class_type,
+      type,
+      model,
+      product,
+      casting_product,
+    } = req.query;
+
+    const filter = {};
+    if (class_type) filter.class_type = class_type;
+    if (type) filter.type = type;
+    if (model) filter.model = model;
+    if (product) filter.product = product;
+    if (casting_product) filter.casting_product = casting_product;
+
+    const rawMaterials = await RawMaterial.find(filter);
+
+    const filteredRawMaterials = rawMaterials.map((material) =>
+      filterFieldsByClass(material.class_type, material.toObject())
+    );
+
+    res.status(200).json(filteredRawMaterials);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -36,7 +64,6 @@ export const createRawMaterial = async (req, res) => {
   }
 };
 
-// ✅ Update
 export const updateRawMaterial = async (req, res) => {
   try {
     const {class_type} = req.body;
@@ -71,7 +98,6 @@ export const updateRawMaterial = async (req, res) => {
   }
 };
 
-// ✅ Get All (Grouped by class_type)
 export const getAllRawMaterials = async (req, res) => {
   try {
     const all = await RawMaterial.find();

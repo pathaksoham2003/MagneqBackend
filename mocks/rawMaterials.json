@@ -2,63 +2,71 @@
   "data": [
     {
       "class_type": "A",
-      "quantity": 50,
+      "model": "M102",
+      "quantity": 0,
       "other_specification": {
         "material": "Cast Iron",
         "weight": "7kg",
         "dimension": "120x80x60mm"
       },
-      "casting_product": "Gearbox Housing"
+      "casting_product": "UNFLATTEN"
     },
     {
       "class_type": "A",
-      "quantity": 30,
+      "model": "M128",
+      "quantity": 0,
       "other_specification": {
         "material": "Aluminum",
         "weight": "3.2kg",
         "coating": "Anodized"
       },
-      "casting_product": "Input Flange"
+      "casting_product": "FLATTEN"
     },
     {
       "class_type": "A",
-      "quantity": 20,
+      "model": "M150",
+      "quantity": 0,
       "other_specification": {
         "material": "Steel",
         "molding_type": "Sand Cast",
         "finish": "Raw"
       },
-      "casting_product": "Bearing Cover"
+      "casting_product": "FLATTEN"
     },
 
     {
       "class_type": "B",
-      "quantity": 70,
+      "model": "M103",
+      "quantity": 0,
       "product": "Sun Gear",
-      "status": "Preprocessing"
+      "type": "UNPROCESSED"
     },
     {
       "class_type": "B",
-      "quantity": 40,
+      "model": "M104",
+      "quantity": 0,
       "product": "Shaft",
-      "status": "Hobbing"
+      "type": "HOBBING"
     },
     {
       "class_type": "B",
-      "quantity": 35,
+      "model": "M105",
+      "quantity": 0,
       "product": "Final Drive Gear",
-      "status": "Heat Treatment"
+      "type": "IN_HOUSE_PROCESSING"
     },
     {
       "class_type": "B",
-      "quantity": 60,
+      "model": "M106",
+      "quantity": 0,
       "product": "Gearbox Cover",
-      "status": "FG"
+      "type": "PROCESSED"
     },
 
     {
       "class_type": "C",
-      "quantity": 15,
+      "model": "M201",
+      "quantity": 0,
       "other_specification": {
         "set_type": "Lubricant Kit",
         "contains": "Gear Oil, Grease, Applicator"
@@ -77,7 +85,8 @@
     },
     {
       "class_type": "C",
-      "quantity": 10,
+      "model": "M202",
+      "quantity": 0,
       "other_specification": {
         "set_type": "Accessory Kit",
         "contains": "Mounting bolts, Seals, Keys"
@@ -96,7 +105,8 @@
     },
     {
       "class_type": "C",
-      "quantity": 8,
+      "model": "M203",
+      "quantity": 0,
       "other_specification": {
         "set_type": "Spacer Kit",
         "material": "Hardened Steel"

@@ -20,11 +20,13 @@ export const RM_TYPES = {
 };
 
 export const CASTING_PRODUCT = {
-  FLAT_BASE: "flat_base",
-  ROUND_BASE: "round_base",
+  FLATTEN: "FLATTEN",
+  UNFLATTEN: "UNFLATTEN",
 };
 
 export const CLASS_B_STATUS = {
-    unprocessed: "unprocessed",
-    processed: "processed",
-}
+  unprocessed: "UNPROCESSED",
+  inHouseProcessing: "IN_HOUSE_PROCESSING",
+  hobbing: "HOBBING",
+  processed: "PROCESSED",
+};
