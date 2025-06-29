@@ -106,6 +106,77 @@ export const getPurchaseOrderItems = async (req, res) => {
   }
 };
 
+export const addStockToPurchaseOrder = async (req, res) => {
+  try {
+    const { po_id, items } = req.body;
+
+    if (!po_id || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Missing po_id or items array" });
+    }
+
+    const purchaseOrder = await Purchase.findById(po_id);
+    if (!purchaseOrder) {
+      return res.status(404).json({ error: "Purchase order not found" });
+    }
+
+    const itemUpdates = new Map();
+    for (const item of items) {
+      if (!item.item_id || typeof item.recieved_quantity !== "number") {
+        return res.status(400).json({ error: "Invalid item format" });
+      }
+      itemUpdates.set(item.item_id, item.recieved_quantity);
+    }
+
+    let allComplete = true;
+
+    for (const poItem of purchaseOrder.items) {
+      const updateQty = itemUpdates.get(poItem._id.toString());
+
+      if (updateQty !== undefined) {
+        const previouslyReceived = poItem.recieved_quantity || 0;
+        const newTotal = previouslyReceived + updateQty;
+        const finalReceivedQty = Math.min(newTotal, poItem.quantity);
+        const addedQtyToStock = finalReceivedQty - previouslyReceived;
+
+        // Update PO item
+        poItem.recieved_quantity = finalReceivedQty;
+        poItem.status = finalReceivedQty >= poItem.quantity ? "COMPLETED" : "PENDING";
+
+        // Update Raw Material Quantity
+        if (addedQtyToStock > 0) {
+          await RawMaterials.findByIdAndUpdate(
+            poItem.raw_material_id,
+            {
+              $inc: { quantity: addedQtyToStock },
+              $set: { updated_at: new Date() }
+            },
+            { new: true }
+          );
+        }
+      }
+
+      if ((poItem.recieved_quantity || 0) < poItem.quantity) {
+        allComplete = false;
+      }
+    }
+
+    if (allComplete) {
+      purchaseOrder.status = "COMPLETE";
+    }
+
+    await purchaseOrder.save();
+
+    res.status(200).json({
+      message: "Stock updated successfully and raw materials updated",
+      status: purchaseOrder.status,
+      updated_items: items.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
 export const updatePurchaseOrder = async (req, res) => {
   try {
     const {id} = req.params;

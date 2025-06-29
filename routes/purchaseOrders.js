@@ -1,5 +1,5 @@
 import express from 'express';
-import { createPurchaseOrder, getAllPurchaseOrders, getPurchaseOrderItems, updatePurchaseOrder } from '../controllers/purchaseOrders.js';
+import { addStockToPurchaseOrder, createPurchaseOrder, getAllPurchaseOrders, getPurchaseOrderItems, updatePurchaseOrder } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
 
@@ -232,5 +232,52 @@ router.put('/:id', updatePurchaseOrder);
  *         description: Server error
  */
 router.get('/:po_number/items', getPurchaseOrderItems);
+
+
+/**
+ * @swagger
+ * /api/purchase_order/add_stock:
+ *   patch:
+ *     summary: Add stock to purchase order items and update PO status
+ *     tags: [PurchaseOrder]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - po_id
+ *               - items
+ *             properties:
+ *               po_id:
+ *                 type: string
+ *                 description: Purchase order document ID (not PO number)
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - item_id
+ *                     - recieved_quantity
+ *                   properties:
+ *                     item_id:
+ *                       type: string
+ *                       description: Item ID within the purchase order
+ *                     recieved_quantity:
+ *                       type: number
+ *                       description: Quantity received for this item
+ *     responses:
+ *       200:
+ *         description: Stock updated successfully
+ *       400:
+ *         description: Invalid request format
+ *       404:
+ *         description: Purchase order not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/add_stock', addStockToPurchaseOrder);
+
 
 export default router;
