@@ -1,40 +1,40 @@
-import {PO_ITEM_STATUS, PO_STATUS} from "../enums/purchase.js";
+import { PO_ITEM_STATUS, PO_STATUS } from "../enums/purchase.js";
 import Purchase from "../models/Purchase.js";
 import RawMaterials from "../models/RawMaterials.js";
-import {filterFieldsByClass} from "../utils/helper.js";
+import { filterFieldsByClass } from "../utils/helper.js";
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const {vendor_name, purchasing_date, items} = req.body;
+    const { vendor_name, purchasing_date, items } = req.body;
 
-    if (
-      !vendor_name ||
-      !purchasing_date ||
-      !Array.isArray(items) ||
-      items.length === 0
-    ) {
-      return res.status(400).json({error: "Missing required fields or items"});
+    if (!vendor_name || !purchasing_date || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Missing required fields or items" });
     }
-    const pendingItems = items.map((it) => ({
-      ...it,
-      recieved_quantity: 0,
-      status: PO_ITEM_STATUS.PENDING,
-    }));
+
+    const pendingItems = items.map((it) => {
+      const item_total_price = parseFloat(it.price_per_unit || 0) * parseFloat(it.quantity || 0);
+      return {
+        ...it,
+        item_total_price: item_total_price.toFixed(2),
+        recieved_quantity: 0,
+        status: PO_ITEM_STATUS.PENDING,
+      };
+    });
+
+    const total_price = pendingItems.reduce((sum, item) => sum + parseFloat(item.item_total_price || 0), 0);
 
     const newOrder = new Purchase({
       vendor_name,
       purchasing_date,
       items: pendingItems,
       status: PO_STATUS.PENDING,
+      total_price: total_price.toFixed(2),
     });
 
     const saved = await newOrder.save();
-
-    res.status(201).json({message: "Purchase order created", order: saved});
+    res.status(201).json({ message: "Purchase order created", order: saved });
   } catch (err) {
-    res
-      .status(500)
-      .json({error: "Failed to create purchase order", details: err.message});
+    res.status(500).json({ error: "Failed to create purchase order", details: err.message });
   }
 };
 
@@ -48,10 +48,7 @@ export const getAllPurchaseOrders = async (req, res) => {
         if (["A", "B", "C"].includes(type)) {
           return {
             ...item.toObject(),
-            raw_material_id: filterFieldsByClass(
-              type,
-              item.raw_material_id.toObject()
-            ),
+            raw_material_id: filterFieldsByClass(type, item.raw_material_id.toObject()),
           };
         }
         return item;
@@ -65,7 +62,7 @@ export const getAllPurchaseOrders = async (req, res) => {
 
     res.json(filteredOrders);
   } catch (err) {
-    res.status(500).json({error: "Failed to fetch purchase orders"});
+    res.status(500).json({ error: "Failed to fetch purchase orders" });
   }
 };
 
@@ -83,7 +80,6 @@ export const getPurchaseOrderItems = async (req, res) => {
 
     for (const item of order.items) {
       const material = await RawMaterials.findById(item.raw_material_id);
-
       if (!material) continue;
       if (class_type && material.class_type !== class_type) continue;
 
@@ -138,17 +134,15 @@ export const addStockToPurchaseOrder = async (req, res) => {
         const finalReceivedQty = Math.min(newTotal, poItem.quantity);
         const addedQtyToStock = finalReceivedQty - previouslyReceived;
 
-        // Update PO item
         poItem.recieved_quantity = finalReceivedQty;
         poItem.status = finalReceivedQty >= poItem.quantity ? "COMPLETED" : "PENDING";
 
-        // Update Raw Material Quantity
         if (addedQtyToStock > 0) {
           await RawMaterials.findByIdAndUpdate(
             poItem.raw_material_id,
             {
               $inc: { quantity: addedQtyToStock },
-              $set: { updated_at: new Date() }
+              $set: { updated_at: new Date() },
             },
             { new: true }
           );
@@ -176,22 +170,20 @@ export const addStockToPurchaseOrder = async (req, res) => {
   }
 };
 
-
 export const updatePurchaseOrder = async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
     const updatedOrder = await Purchase.findByIdAndUpdate(id, req.body, {
       new: true,
       runValidators: true,
     }).populate("items.raw_material_id");
 
     if (!updatedOrder) {
-      return res.status(404).json({error: "Purchase order not found"});
+      return res.status(404).json({ error: "Purchase order not found" });
     }
 
     res.json(updatedOrder);
   } catch (err) {
-    console.error("Update error:", err);
-    res.status(500).json({error: "Failed to update purchase order"});
+    res.status(500).json({ error: "Failed to update purchase order" });
   }
 };

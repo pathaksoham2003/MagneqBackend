@@ -2,25 +2,81 @@
   {
     "name": "Alice Customer",
     "role": "CUSTOMER",
-    "password": "$2b$10$T7gYI1Ce3Z52PZYgWZx9EulMb77Z8puYpHzyvC0bbx97YIgqzN1nK",
+    "password": "customer123",
     "user_name": "alice",
-    "created_at": "2024-06-01T10:00:00.000Z",
-    "updated_at": "2024-06-01T10:00:00.000Z"
+    "permissions": {
+      "sidebar": [
+        "create_order",
+        "track_order",
+        "quality"
+      ],
+      "support": [
+        "chat",
+        "email"
+      ],
+      "allowed_routes": [
+        "/create_order",
+        "/track_order",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
   },
   {
     "name": "Bob Sales",
     "role": "SALES_EXEC",
-    "password": "$2b$10$speFq3qpOmVaeiQkzU03o.BK2ytjDFwZPxRSZnZk/h3EPL4vNPa0y",
+    "password": "sales123",
     "user_name": "bob",
-    "created_at": "2024-06-01T11:00:00.000Z",
-    "updated_at": "2024-06-01T11:00:00.000Z"
+    "permissions": {
+      "sidebar": [
+        "create_order",
+        "track_order",
+        "ledger",
+        "quality"
+      ],
+      "support": [
+        "chat",
+        "email"
+      ],
+      "allowed_routes": [
+        "/create_order",
+        "/track_order",
+        "/ledger",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
   },
   {
     "name": "Charlie Admin",
     "role": "ADMIN",
-    "password": "$2b$10$DPDc5azssMf.KHP5w0DN1u93R0WZf3gNHRU97cSDD83FiDCPgGhxW",
+    "password": "admin123",
     "user_name": "charlie",
-    "created_at": "2024-06-01T12:00:00.000Z",
-    "updated_at": "2024-06-01T12:00:00.000Z"
+    "permissions": {
+      "sidebar": [
+        "dashboard",
+        "sales",
+        "production",
+        "store",
+        "purchase",
+        "quality"
+      ],
+      "support": [
+        "chat",
+        "email"
+      ],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
   }
 ]

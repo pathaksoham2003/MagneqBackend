@@ -22,6 +22,7 @@ import qualityRoutes from './routes/quality.js';
 import finishedGoodsRoutes from './routes/finishedGoods.js';
 import salesRoutes from './routes/sales.js';
 import productionRoutes from './routes/production.js';
+import dashboardRoutes from "./routes/dashboard.js";
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.use('/api/quality', qualityRoutes);
 app.use('/api/finished_goods', finishedGoodsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/production', productionRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 

@@ -16,12 +16,18 @@ const router = express.Router();
  *     FinishedGoodItem:
  *       type: object
  *       properties:
- *         raw_material_id:
+ *         finished_good:
  *           type: string
- *           description: ObjectId of the Finished Good
+ *         rate_per_unit:
+ *           type: number
+ *           format: float
  *         quantity:
  *           type: number
- *           description: Quantity of this finished good
+ *         item_total_price:
+ *           type: number
+ *           format: float
+ *         status:
+ *           type: boolean
  *
  *     Sale:
  *       type: object
@@ -30,7 +36,6 @@ const router = express.Router();
  *           type: string
  *         order_id:
  *           type: number
- *           description: Auto-incremented numeric order ID
  *         finished_goods:
  *           type: array
  *           items:
@@ -47,32 +52,15 @@ const router = express.Router();
  *         delivery_date:
  *           type: string
  *           format: date
+ *         total_amount:
+ *           type: number
+ *           format: float
  *         created_by:
  *           type: string
  *         createdAt:
  *           type: string
  *           format: date-time
  *         updatedAt:
- *           type: string
- *           format: date-time
- *
- *     Production:
- *       type: object
- *       properties:
- *         _id:
- *           type: string
- *         order_id:
- *           type: number
- *         finished_good:
- *           type: string
- *           description: ObjectId of the Finished Good
- *         status:
- *           type: string
- *           enum: [IN_STOCK, NOT_IN_STOCK, READY]
- *         created_at:
- *           type: string
- *           format: date-time
- *         updated_at:
  *           type: string
  *           format: date-time
  */
@@ -97,10 +85,11 @@ const router = express.Router();
  *                   properties:
  *                     finished_good:
  *                       type: string
- *                       description: ObjectId of the finished good
  *                     quantity:
  *                       type: number
- *                       description: Quantity of this finished good
+ *                     rate_per_unit:
+ *                       type: number
+ *                       format: float
  *               customer_name:
  *                 type: string
  *               magneq_user:
@@ -109,29 +98,14 @@ const router = express.Router();
  *                 type: string
  *               status:
  *                 type: string
- *                 enum: [RECEIVED, INPROCESS, PROCESSED, DISPATCHED, DELIVERED, CANCELLED]
  *               delivery_date:
  *                 type: string
  *                 format: date
  *               created_by:
  *                 type: string
- *                 description: ObjectId of the user creating the sale
  *     responses:
  *       201:
  *         description: Sale created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sale:
- *                   $ref: '#/components/schemas/Sale'
- *                 productions:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Production'
- *       400:
- *         description: Bad request
  */
 router.post("/", createSale);
 
@@ -144,12 +118,6 @@ router.post("/", createSale);
  *     responses:
  *       200:
  *         description: List of all sales
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/Sale'
  */
 router.get("/", getAllSales);
 
@@ -165,23 +133,16 @@ router.get("/", getAllSales);
  *         required: true
  *         schema:
  *           type: string
- *         description: Sale ID
  *     responses:
  *       200:
  *         description: Sale found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Sale'
- *       404:
- *         description: Sale not found
  */
 router.get("/:id", getSaleById);
 
 /**
  * @swagger
  * /api/sales/{id}:
-  *   put:
+ *   put:
  *     summary: Update a sale
  *     tags: [Sales]
  *     parameters:
@@ -190,7 +151,6 @@ router.get("/:id", getSaleById);
  *         required: true
  *         schema:
  *           type: string
- *         description: Sale ID
  *     requestBody:
  *       required: true
  *       content:
@@ -200,19 +160,13 @@ router.get("/:id", getSaleById);
  *     responses:
  *       200:
  *         description: Sale updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Sale'
- *       404:
- *         description: Sale not found
  */
 router.put("/:id", updateSale);
 
 /**
  * @swagger
  * /api/sales/{id}:
-  *   delete:
+ *   delete:
  *     summary: Delete a sale
  *     tags: [Sales]
  *     parameters:
@@ -221,12 +175,9 @@ router.put("/:id", updateSale);
  *         required: true
  *         schema:
  *           type: string
- *         description: Sale ID
  *     responses:
  *       200:
  *         description: Sale deleted successfully
- *       404:
- *         description: Sale not found
  */
 router.delete("/:id", deleteSale);
 

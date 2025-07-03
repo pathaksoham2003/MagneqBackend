@@ -6,6 +6,22 @@ export const createSale = async (req, res) => {
   try {
     const saleData = { ...req.body, status: "INPROCESS" };
 
+    let totalAmount = 0;
+    saleData.finished_goods = saleData.finished_goods.map(item => {
+      const rate = parseFloat(item.rate_per_unit || 0);
+      const quantity = parseFloat(item.quantity || 0);
+      const itemTotal = rate * quantity;
+
+      totalAmount += itemTotal;
+
+      return {
+        ...item,
+        item_total_price: itemTotal.toFixed(2),
+      };
+    });
+
+    saleData.total_amount = totalAmount.toFixed(2);
+
     const sale = new Sales(saleData);
     const savedSale = await sale.save();
 
@@ -19,7 +35,7 @@ export const createSale = async (req, res) => {
         order_id: savedSale.order_id,
         finished_good: fg._id,
         quantity: item.quantity,
-        status: "UN_PROCESSED", 
+        status: "UN_PROCESSED",
         created_at: new Date(),
         updated_at: new Date(),
       });
@@ -28,10 +44,7 @@ export const createSale = async (req, res) => {
       productionRecords.push(production);
     }
 
-    res.status(201).json({
-      sale: savedSale,
-      productions: productionRecords,
-    });
+    res.status(201).json({ sale: savedSale, productions: productionRecords });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -40,7 +53,7 @@ export const createSale = async (req, res) => {
 export const getAllSales = async (req, res) => {
   try {
     const sales = await Sales.find()
-      .populate('finished_goods.raw_material_id')
+      .populate('finished_goods.finished_good')
       .populate('created_by');
     res.status(200).json(sales);
   } catch (err) {
@@ -48,11 +61,10 @@ export const getAllSales = async (req, res) => {
   }
 };
 
-
 export const getSaleById = async (req, res) => {
   try {
     const sale = await Sales.findById(req.params.id)
-      .populate('finished_goods.raw_material_id')
+      .populate('finished_goods.finished_good')
       .populate('created_by');
     if (!sale) return res.status(404).json({ message: 'Sale not found' });
     res.status(200).json(sale);
@@ -63,10 +75,30 @@ export const getSaleById = async (req, res) => {
 
 export const updateSale = async (req, res) => {
   try {
-    const updated = await Sales.findByIdAndUpdate(req.params.id, req.body, {
+    let updateData = { ...req.body };
+
+    if (updateData.finished_goods) {
+      let totalAmount = 0;
+      updateData.finished_goods = updateData.finished_goods.map(item => {
+        const rate = parseFloat(item.rate_per_unit || 0);
+        const quantity = parseFloat(item.quantity || 0);
+        const itemTotal = rate * quantity;
+
+        totalAmount += itemTotal;
+
+        return {
+          ...item,
+          item_total_price: itemTotal.toFixed(2),
+        };
+      });
+      updateData.total_amount = totalAmount.toFixed(2);
+    }
+
+    const updated = await Sales.findByIdAndUpdate(req.params.id, updateData, {
       new: true,
-    }).populate('finished_goods.raw_material_id')
+    }).populate('finished_goods.finished_good')
       .populate('created_by');
+
     if (!updated) return res.status(404).json({ message: 'Sale not found' });
     res.status(200).json(updated);
   } catch (err) {
@@ -83,4 +115,3 @@ export const deleteSale = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-

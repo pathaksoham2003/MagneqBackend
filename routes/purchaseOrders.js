@@ -1,5 +1,11 @@
 import express from 'express';
-import { addStockToPurchaseOrder, createPurchaseOrder, getAllPurchaseOrders, getPurchaseOrderItems, updatePurchaseOrder } from '../controllers/purchaseOrders.js';
+import {
+  addStockToPurchaseOrder,
+  createPurchaseOrder,
+  getAllPurchaseOrders,
+  getPurchaseOrderItems,
+  updatePurchaseOrder,
+} from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
 
@@ -19,20 +25,23 @@ const router = express.Router();
  *       properties:
  *         raw_material_id:
  *           type: string
- *           description: MongoDB ObjectId of the raw material
  *         quantity:
+ *           type: number
+ *         price_per_unit:
+ *           type: number
+ *         item_total_price:
+ *           type: number
+ *         recieved_quantity:
  *           type: number
  *         status:
  *           type: string
  *     PurchaseOrder:
  *       type: object
- *       required:
- *         - vendor_name
- *         - purchasing_date
- *         - items
  *       properties:
  *         _id:
  *           type: string
+ *         po_number:
+ *           type: number
  *         vendor_name:
  *           type: string
  *         purchasing_date:
@@ -42,14 +51,14 @@ const router = express.Router();
  *           type: array
  *           items:
  *             $ref: '#/components/schemas/PurchaseItem'
+ *         total_price:
+ *           type: number
  *         status:
  *           type: string
  *         created_at:
  *           type: string
- *           format: date-time
  *         updated_at:
  *           type: string
- *           format: date-time
  */
 
 /**
@@ -71,38 +80,27 @@ const router = express.Router();
  *             properties:
  *               vendor_name:
  *                 type: string
- *                 example: "ABC Supplier Pvt Ltd"
  *               purchasing_date:
  *                 type: string
  *                 format: date
- *                 example: "2025-06-29"
  *               items:
  *                 type: array
- *                 minItems: 1
  *                 items:
  *                   type: object
  *                   required:
  *                     - raw_material_id
  *                     - quantity
+ *                     - price_per_unit
  *                   properties:
  *                     raw_material_id:
  *                       type: string
- *                       example: "60d21b4667d0d8992e610c85"
  *                     quantity:
  *                       type: number
- *                       example: 100
+ *                     price_per_unit:
+ *                       type: number
  *     responses:
  *       201:
  *         description: Purchase order created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 order:
- *                   $ref: '#/components/schemas/PurchaseOrder'
  *       400:
  *         description: Validation error
  *       500:
@@ -119,12 +117,6 @@ router.post('/', createPurchaseOrder);
  *     responses:
  *       200:
  *         description: List of all purchase orders
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/PurchaseOrder'
  *       500:
  *         description: Failed to fetch purchase orders
  */
@@ -140,12 +132,11 @@ router.get('/', getAllPurchaseOrders);
  *       - in: path
  *         name: id
  *         required: true
- *         description: MongoDB ObjectId of the purchase order
  *         schema:
  *           type: string
+ *         description: Purchase order document ID
  *     requestBody:
  *       required: true
- *       description: Fields to update in the purchase order
  *       content:
  *         application/json:
  *           schema:
@@ -165,6 +156,10 @@ router.get('/', getAllPurchaseOrders);
  *                       type: string
  *                     quantity:
  *                       type: number
+ *                     price_per_unit:
+ *                       type: number
+ *                     item_total_price:
+ *                       type: number
  *                     status:
  *                       type: string
  *               status:
@@ -172,10 +167,6 @@ router.get('/', getAllPurchaseOrders);
  *     responses:
  *       200:
  *         description: Purchase order updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/PurchaseOrder'
  *       404:
  *         description: Purchase order not found
  *       500:
@@ -187,7 +178,7 @@ router.put('/:id', updatePurchaseOrder);
  * @swagger
  * /api/purchase_order/{po_number}/items:
  *   get:
- *     summary: Get items of a purchase order with max_allowed quantity
+ *     summary: Get items of a purchase order with max allowed quantity
  *     tags: [PurchaseOrder]
  *     parameters:
  *       - in: path
@@ -195,44 +186,20 @@ router.put('/:id', updatePurchaseOrder);
  *         required: true
  *         schema:
  *           type: integer
- *         description: Purchase order number
  *       - in: query
  *         name: class_type
- *         required: false
  *         schema:
  *           type: string
  *           enum: [A, B, C]
- *         description: Filter items by raw material class type
  *     responses:
  *       200:
  *         description: List of items with max allowed quantity
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 po_number:
- *                   type: integer
- *                 total_items:
- *                   type: integer
- *                 items:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       item_id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       max_allowed:
- *                         type: number
  *       404:
  *         description: Purchase order not found
  *       500:
  *         description: Server error
  */
 router.get('/:po_number/items', getPurchaseOrderItems);
-
 
 /**
  * @swagger
@@ -252,7 +219,6 @@ router.get('/:po_number/items', getPurchaseOrderItems);
  *             properties:
  *               po_id:
  *                 type: string
- *                 description: Purchase order document ID (not PO number)
  *               items:
  *                 type: array
  *                 items:
@@ -263,10 +229,8 @@ router.get('/:po_number/items', getPurchaseOrderItems);
  *                   properties:
  *                     item_id:
  *                       type: string
- *                       description: Item ID within the purchase order
  *                     recieved_quantity:
  *                       type: number
- *                       description: Quantity received for this item
  *     responses:
  *       200:
  *         description: Stock updated successfully
@@ -278,6 +242,5 @@ router.get('/:po_number/items', getPurchaseOrderItems);
  *         description: Server error
  */
 router.patch('/add_stock', addStockToPurchaseOrder);
-
 
 export default router;

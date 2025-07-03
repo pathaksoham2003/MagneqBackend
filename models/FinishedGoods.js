@@ -14,6 +14,8 @@ const finishedGoodsSchema = new mongoose.Schema({
       quantity: { type: Number, required: true },
     },
   ],
+  rate_per_unit: { type: mongoose.Schema.Types.Decimal128, default: 0.0 },
+  base_price: { type: mongoose.Schema.Types.Decimal128, default: 0.0 }, 
   units: Number,
 });
 

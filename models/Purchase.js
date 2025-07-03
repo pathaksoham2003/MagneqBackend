@@ -7,6 +7,8 @@ const purchaseItemSchema = new mongoose.Schema({
   raw_material_id: { type: mongoose.Schema.Types.ObjectId, ref: 'RawMaterials' },
   quantity: Number,
   recieved_quantity: Number,
+  price_per_unit: { type: mongoose.Schema.Types.Decimal128 },
+  item_total_price: { type: mongoose.Schema.Types.Decimal128, default: 0 },
   status: String
 });
 
@@ -15,6 +17,7 @@ const purchaseSchema = new mongoose.Schema({
   vendor_name: String,
   purchasing_date: Date,
   items: [purchaseItemSchema],
+  total_price: { type: mongoose.Schema.Types.Decimal128, default: 0 }, 
   status: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

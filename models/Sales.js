@@ -9,7 +9,9 @@ const salesItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "FinishedGoods",
     },
+    rate_per_unit: { type: mongoose.Schema.Types.Decimal128 },
     quantity: Number,
+    item_total_price: { type: mongoose.Schema.Types.Decimal128, default: 0 },
     status: {type: Boolean, default: false},
   },
   {_id: false}
@@ -36,6 +38,7 @@ const salesSchema = new mongoose.Schema(
     delivery_date: {
       type: Date,
     },
+    total_amount: { type: mongoose.Schema.Types.Decimal128, default: 0 },
     created_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
   {timestamps: true}
