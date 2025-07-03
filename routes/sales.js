@@ -5,6 +5,7 @@ import {
   getSaleById,
   updateSale,
   deleteSale,
+  approveSale,
 } from "../controllers/sales.js";
 
 const router = express.Router();
@@ -96,8 +97,6 @@ const router = express.Router();
  *                 type: string
  *               description:
  *                 type: string
- *               status:
- *                 type: string
  *               delivery_date:
  *                 type: string
  *                 format: date
@@ -108,6 +107,29 @@ const router = express.Router();
  *         description: Sale created successfully
  */
 router.post("/", createSale);
+
+/**
+ * @swagger
+ * /api/sales/{id}/approve:
+ *   patch:
+ *     summary: Approve a sales order and generate production orders
+ *     tags: [Sales]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the sales order to approve
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Sale approved and productions created
+ *       404:
+ *         description: Sale not found
+ *       400:
+ *         description: Sale is already approved or processed
+ */
+router.patch("/:id/approve", approveSale);
 
 /**
  * @swagger

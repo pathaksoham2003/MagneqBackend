@@ -1,5 +1,6 @@
 export const salesStatus = {
-  inProcess: "INPROCESS",
+  unapproved: "UN_APPROVED",
+  inProcess: "IN_PROCESS",
   processed: "PROCESSED",
   dispatched: "DISPATCHED",
   delivered: "DELIVERED",

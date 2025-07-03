@@ -27,7 +27,7 @@ const salesSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: [
-        "RECEIVED",
+        "UN_APPROVED",
         "INPROCESS",
         "PROCESSED",
         "DISPATCHED",
