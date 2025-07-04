@@ -19,38 +19,61 @@ const router = express.Router();
  * @swagger
  * /api/production:
  *   get:
- *     summary: Get all production orders that are not READY
+ *     summary: Get all pending production orders (not in READY status)
  *     tags: [Production]
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: "Page number for pagination (default: 1)"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: "Number of items per page (default: 10)"
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: "Search by production number (number after PRO-)"
  *     responses:
  *       200:
- *         description: List of pending production orders
+ *         description: Paginated list of pending production orders in tabular format
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   _id:
+ *               type: object
+ *               properties:
+ *                 header:
+ *                   type: array
+ *                   items:
  *                     type: string
- *                   order_id:
- *                     type: number
- *                   quantity:
- *                     type: number
- *                   status:
- *                     type: string
- *                     enum: [UN_PROCESSED, IN_PROCESSES]
- *                   inStock:
- *                     type: boolean
- *                   finished_good:
+ *                   example: ["Production Id", "Customer Name", "Date of Creation", "Order Details", "Quantity", "Status"]
+ *                 item:
+ *                   type: array
+ *                   items:
  *                     type: object
  *                     properties:
- *                       model:
+ *                       id:
  *                         type: string
- *                       type:
- *                         type: string
- *                       ratio:
- *                         type: string
+ *                         example: "686692dd4625cb568fd0c15c"
+ *                       data:
+ *                         type: array
+ *                         items:
+ *                           oneOf:
+ *                             - type: string
+ *                             - type: number
+ *                         example: ["PRO-1", "Vendor X", "2025-07-03T00:00:00.000Z", "M1/Type-A/5:1/6", 6, "UN_PROCESSED"]
+ *                 page_no:
+ *                   type: integer
+ *                   example: 1
+ *                 total_pages:
+ *                   type: integer
+ *                   example: 2
+ *                 total_items:
+ *                   type: integer
+ *                   example: 12
  */
 router.get('/', getPendingProductionOrders);
 

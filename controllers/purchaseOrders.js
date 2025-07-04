@@ -38,33 +38,68 @@ export const createPurchaseOrder = async (req, res) => {
   }
 };
 
-export const getAllPurchaseOrders = async (req, res) => {
+export const getAllPurchases = async (req, res) => {
   try {
-    const orders = await Purchase.find().populate("items.raw_material_id");
+    const pageNo = parseInt(req.query.page_no) || 1;
+    const PAGE_SIZE = 10;
 
-    const filteredOrders = orders.map((order) => {
-      const filteredItems = order.items.map((item) => {
-        const type = item.raw_material_id.class_type;
-        if (["A", "B", "C"].includes(type)) {
-          return {
-            ...item.toObject(),
-            raw_material_id: filterFieldsByClass(type, item.raw_material_id.toObject()),
-          };
-        }
-        return item;
+    const totalCount = await Purchase.countDocuments();
+
+    const purchases = await Purchase.find()
+      .sort({ created_at: -1 })
+      .skip((pageNo - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE)
+      .populate({
+        path: "items.raw_material_id",
+        select: "class_type",
       });
 
+    const items = purchases.map(purchase => {
+      const classTotals = { A: 0, B: 0, C: 0 };
+
+      for (const item of purchase.items) {
+        const mat = item.raw_material_id;
+        const classType = mat?.class_type;
+
+        if (classType && classTotals.hasOwnProperty(classType)) {
+          classTotals[classType] += item.quantity;
+        }
+      }
+
+      const orderDetails = Object.entries(classTotals)
+        .filter(([_, qty]) => qty > 0)
+        .map(([cls, qty]) => `${cls}/${qty}`);
+
       return {
-        ...order.toObject(),
-        items: filteredItems,
+        id: purchase._id,
+        data: [
+          `PRO-${purchase.po_number}`,
+          purchase.vendor_name,
+          purchase.purchasing_date,
+          orderDetails,
+          purchase.status
+        ],
       };
     });
 
-    res.json(filteredOrders);
+    res.status(200).json({
+      header: [
+        "Production Id",
+        "Vendor Name",
+        "Date of purchase",
+        "Order Details",
+        "Status"
+      ],
+      item: items,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalCount / PAGE_SIZE),
+      total_items: totalCount,
+    });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch purchase orders" });
+    res.status(500).json({ error: err.message });
   }
 };
+
 
 export const getPurchaseOrderItems = async (req, res) => {
   try {
