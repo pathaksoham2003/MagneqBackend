@@ -135,11 +135,60 @@ router.patch("/:id/approve", approveSale);
  * @swagger
  * /api/sales:
  *   get:
- *     summary: Get all sales
+ *     summary: Get all sales with optional search and pagination
  *     tags: [Sales]
+ *     parameters:
+ *       - in: query
+ *         name: page_no
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: integer
+ *           example: 5
+ *         description: Search by numeric order ID (without SO- prefix)
  *     responses:
  *       200:
- *         description: List of all sales
+ *         description: List of all sales (paginated)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 header:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["Order Id", "Date of Creation", "Customer Name", "Order Details", "Status"]
+ *                 item:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "686692dd4625cb568fd0c15c"
+ *                       data:
+ *                         type: array
+ *                         items:
+ *                           oneOf:
+ *                             - type: string
+ *                             - type: array
+ *                               items:
+ *                                 type: string
+ *                         example: ["SO-1", "2025-07-03T14:25:33.276Z", "string", ["M1/Type-A/5:1/1"], "PROCESSED"]
+ *                 page_no:
+ *                   type: integer
+ *                   example: 1
+ *                 total_pages:
+ *                   type: integer
+ *                   example: 1
+ *                 total_items:
+ *                   type: integer
+ *                   example: 1
  */
 router.get("/", getAllSales);
 

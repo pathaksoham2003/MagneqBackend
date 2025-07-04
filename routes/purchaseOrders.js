@@ -2,7 +2,7 @@ import express from 'express';
 import {
   addStockToPurchaseOrder,
   createPurchaseOrder,
-  getAllPurchaseOrders,
+  getAllPurchases,
   getPurchaseOrderItems,
   updatePurchaseOrder,
 } from '../controllers/purchaseOrders.js';
@@ -112,15 +112,59 @@ router.post('/', createPurchaseOrder);
  * @swagger
  * /api/purchase_order:
  *   get:
- *     summary: Get all purchase orders
+ *     summary: Get all purchases with pagination
  *     tags: [PurchaseOrder]
+ *     parameters:
+ *       - in: query
+ *         name: page_no
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Page number for pagination
  *     responses:
  *       200:
  *         description: List of all purchase orders
- *       500:
- *         description: Failed to fetch purchase orders
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 header:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ["Production Id", "Vendor Name", "Date of purchase", "Order Details", "Status"]
+ *                 item:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         example: "686692dd4625cb568fd0c15c"
+ *                       data:
+ *                         type: array
+ *                         items:
+ *                           oneOf:
+ *                             - type: string
+ *                             - type: array
+ *                               items:
+ *                                 type: string
+ *                         example:
+ *                           - "PRO-1"
+ *                           - "Vendor X"
+ *                           - "2025-07-03T00:00:00.000Z"
+ *                           - ["ClassA/100", "ClassB/30"]
+ *                           - "COMPLETED"
+ *                 page_no:
+ *                   type: integer
+ *                 total_pages:
+ *                   type: integer
+ *                 total_items:
+ *                   type: integer
  */
-router.get('/', getAllPurchaseOrders);
+
+router.get('/', getAllPurchases);
 
 /**
  * @swagger

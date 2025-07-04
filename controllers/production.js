@@ -5,38 +5,74 @@ import Sales from "../models/Sales.js";
 
 export const getPendingProductionOrders = async (req, res) => {
   try {
-    const productions = await Production.find({
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search;
+
+    const query = {
       status: { $ne: "READY" },
-    }).populate("finished_good");
+    };
 
-    const response = [];
-
-    for (const production of productions) {
-      const finishedGood = production.finished_good;
-      let allMaterialsAvailable = true;
-
-      for (const item of finishedGood.raw_materials) {
-        const requiredQuantity = item.quantity * production.quantity;
-
-        const rawMaterial = await RawMaterials.findById(item.raw_material_id);
-        if (!rawMaterial || rawMaterial.quantity < requiredQuantity) {
-          allMaterialsAvailable = false;
-          break;
-        }
+    if (search) {
+      const orderId = parseInt(search);
+      if (!isNaN(orderId)) {
+        query.order_id = orderId;
       }
-
-      response.push({
-        ...production.toObject(),
-        inStock: allMaterialsAvailable,
-      });
     }
 
-    res.status(200).json(response);
+    const totalItems = await Production.countDocuments(query);
+
+    const productions = await Production.find(query)
+      .populate({
+        path: "finished_good",
+        populate: {
+          path: "raw_materials.raw_material_id",
+          model: "RawMaterials",
+        },
+      })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const items = productions.map((production) => {
+      const fg = production.finished_good;
+
+      const orderDetails = `${fg?.model || "N/A"}/${fg?.type || "N/A"}/${fg?.ratio || "N/A"}`;
+
+      return {
+        id: production._id,
+        data: [
+          `PRO-${production.order_id}`,
+          production.customer_name || "Unknown Vendor",
+          production.createdAt,
+          orderDetails, 
+          production.quantity,
+          production.status
+        ]
+      };
+    });
+
+    res.status(200).json({
+      header: [
+        "Production Id",
+        "Customer Name",
+        "Date of Creation",
+        "Order Details",
+        "Quantity",
+        "Status"
+      ],
+      item: items,
+      page_no: page,
+      total_pages: Math.ceil(totalItems / limit),
+      total_items: totalItems
+    });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 export const getProductionDetails = async (req, res) => {
   try {

@@ -5,6 +5,7 @@ const productionSchema = new mongoose.Schema(
     order_id: Number,
     finished_good: {type: mongoose.Schema.Types.ObjectId, ref: "FinishedGoods"},
     quantity: {type: Number},
+    customer_name: String,
     created_at: Date,
     updated_at: Date,
     status: {type: String, enum: ["UN_PROCESSED", "IN_PROCESSES", "READY"]},
