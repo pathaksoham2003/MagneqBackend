@@ -2,6 +2,7 @@ import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import RawMaterials from "../models/RawMaterials.js";
 import Sales from "../models/Sales.js";
+import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
 
 export const getPendingProductionOrders = async (req, res) => {
   try {
@@ -37,7 +38,7 @@ export const getPendingProductionOrders = async (req, res) => {
     const items = productions.map((production) => {
       const fg = production.finished_good;
 
-      const orderDetails = `${fg?.model || "N/A"}/${fg?.type || "N/A"}/${fg?.ratio || "N/A"}`;
+      const orderDetails = getFgModelNumber(fg);
 
       return {
         id: production._id,
@@ -113,7 +114,7 @@ export const getProductionDetails = async (req, res) => {
       production_id: production._id,
       order_id: production.order_id,
       finished_good: {
-        model: finishedGood.model,
+        model: getModelNumber(finishedGood.model),
         type: finishedGood.type,
         ratio: finishedGood.ratio,
       },

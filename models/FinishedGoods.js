@@ -4,6 +4,10 @@ const finishedGoodsSchema = new mongoose.Schema({
   model: String,
   type: String,
   ratio: String,
+  power: {
+    type: mongoose.Schema.Types.Decimal128,
+    default: null, 
+  },
   other_specification: {
     type: mongoose.Schema.Types.Mixed,
     default: null,
@@ -15,7 +19,7 @@ const finishedGoodsSchema = new mongoose.Schema({
     },
   ],
   rate_per_unit: { type: mongoose.Schema.Types.Decimal128, default: 0.0 },
-  base_price: { type: mongoose.Schema.Types.Decimal128, default: 0.0 }, 
+  base_price: { type: mongoose.Schema.Types.Decimal128, default: 0.0 },
   units: Number,
 });
 

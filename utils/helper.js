@@ -30,3 +30,26 @@ export const filterFieldsByClass = (class_type, data) => {
 
   return filtered;
 };
+
+
+export function formatPower(value) {
+  if (value === null || value === undefined) return "$";
+  const str = value.toString();
+  return str.replace(".", "") + "'";
+}
+
+
+export const getFgModelNumber = (fg) => {
+  if (!fg || typeof fg !== "object") return "InvalidFG";
+
+  const model = fg.model || "$";
+  const type = fg.type || "$";
+  const ratio = formatPower(fg.ratio || "$");
+  const otherSpec = fg.other_specification || {};
+  const shaft = otherSpec.motor_shaft_diameter || "$";
+  const frame = otherSpec.motor_frame_size || "$";
+
+  return `MA${type}${model}${ratio}${shaft}${frame}`;
+};
+
+export const getModelNumber = (model_id) => `MA${model_id}`;

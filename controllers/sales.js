@@ -1,6 +1,7 @@
 import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
+import { getFgModelNumber } from "../utils/helper.js";
 
 export const createSale = async (req, res) => {
   try {
@@ -94,7 +95,7 @@ export const getAllSales = async (req, res) => {
       .limit(PAGE_SIZE)
       .populate({
         path: "finished_goods.finished_good",
-        select: "model type ratio",
+        select: "model type ratio other_specification",
       })
       .populate({
         path: "created_by",
@@ -104,7 +105,7 @@ export const getAllSales = async (req, res) => {
     const items = sales.map(sale => {
       const orderDetails = sale.finished_goods.map(fg => {
         const fgData = fg.finished_good;
-        return `${fgData?.model || "N/A"}/${fgData?.type || "N/A"}/${fgData?.ratio || "N/A"}/${fg.quantity}`;
+        return `${getFgModelNumber(fgData)}/${fg.quantity}`;
       });
 
       return {

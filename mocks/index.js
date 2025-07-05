@@ -6,6 +6,7 @@ import RawMaterial from "../models/RawMaterials.js";
 import User from "../models/User.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import RoutePermission from "../models/RoutePermission.js";
+import { insertFinishedGoods } from "./fg.js";
 
 const mockData = JSON.parse(
   fs.readFileSync(new URL("./rawMaterials.json", import.meta.url), "utf-8")
@@ -31,7 +32,7 @@ const seedUsers = async () => {
         user.password = await bcrypt.hash(user.password, 10);
       }
 
-      const {permissions, role} = user;
+      const { permissions, role } = user;
 
       if (permissions && role) {
         if (!routePermissionsMap[role]) {
@@ -63,57 +64,11 @@ const seedUsers = async () => {
   }
 };
 
-const generateFinishedGoods = async (rawMaterials) => {
-  await FinishedGoods.deleteMany({});
-
-  const classA = rawMaterials.find((rm) => rm.class_type === "A");
-  const classB = rawMaterials.find(
-    (rm) => rm.class_type === "B" && rm.type === "PROCESSED"
-  );
-  const classC = rawMaterials.find((rm) => rm.class_type === "C");
-
-  if (!classA || !classB || !classC) {
-    console.error(
-      "❌ Could not find required raw materials: class A, processed class B, and class C"
-    );
-    return;
-  }
-
-  const finishedGoodsData = [
-    {
-      model: "M1",
-      type: "Type-A",
-      ratio: "5:1",
-      other_specification: {power_rating: "10kW", material_grade: "ISO 898"},
-      units: 0,
-      raw_materials: [
-        {raw_material_id: classA._id, quantity: 2},
-        {raw_material_id: classB._id, quantity: 3},
-        {raw_material_id: classC._id, quantity: 1},
-      ],
-    },
-    {
-      model: "M2",
-      type: "Type-B",
-      ratio: "10:1",
-      other_specification: {torque: "30Nm"},
-      units: 0,
-      raw_materials: [
-        {raw_material_id: classA._id, quantity: 1},
-        {raw_material_id: classB._id, quantity: 2},
-      ],
-    },
-  ];
-
-  await FinishedGoods.insertMany(finishedGoodsData);
-  console.log("✅ Finished goods seeded successfully");
-};
-
 const runSeeder = async () => {
   try {
-    const rawMaterials = await generateRawMaterials();
+    const rawMaterials = await generateRawMaterials(); // This must be done before FG insertion
+    await insertFinishedGoods(); // Uses raw materials inserted above
     await seedUsers();
-    await generateFinishedGoods(rawMaterials);
   } catch (err) {
     console.error("❌ Seeder failed:", err.message);
   } finally {
