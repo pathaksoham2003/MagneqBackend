@@ -60,3 +60,56 @@ export const deleteFinishedGood = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getModelConfig = async (req, res) => {
+  try {
+    const finishedGoods = await FinishedGoods.aggregate([
+      {
+        $group: {
+          _id: {
+            model: "$model",
+            power: { $toString: "$power" }, 
+            ratio: "$ratio",
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.model",
+          powers: { $addToSet: "$_id.power" },
+          power_ratios: {
+            $push: {
+              power: "$_id.power",
+              ratio: "$_id.ratio",
+            },
+          },
+        },
+      },
+    ]);
+
+    // Transform result to desired shape
+    const config = {};
+    for (const fg of finishedGoods) {
+      const model = fg._id;
+      config[model] = {
+        powers: fg.powers.map(Number).sort((a, b) => a - b),
+        ratios: {},
+      };
+
+      for (const pr of fg.power_ratios) {
+        const powerKey = pr.power;
+        if (!config[model].ratios[powerKey]) {
+          config[model].ratios[powerKey] = [];
+        }
+        if (!config[model].ratios[powerKey].includes(pr.ratio)) {
+          config[model].ratios[powerKey].push(pr.ratio);
+        }
+      }
+    }
+
+    res.json(config);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch model config" });
+  }
+};

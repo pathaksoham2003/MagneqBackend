@@ -12,6 +12,12 @@ export const validateFieldsByClass = (class_type, data) => {
   return missingFields;
 };
 
+export const classHeaders = {
+  A: ["Class", "Other Specification", "Quantity", "Casting Product"],
+  B: ["Class", "Product", "Quantity", "Status"],
+  C: ["Class", "Other Specification", "Quantity", "Select Items", "Expiry Date"],
+};
+
 export const filterFieldsByClass = (class_type, data) => {
   const allowedFields = {
     A: ['_id', 'class_type', 'other_specification', 'quantity', 'casting_product'],

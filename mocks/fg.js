@@ -48,7 +48,7 @@ export const insertFinishedGoods = async () => {
     });
 
     const inserted = await FinishedGoods.insertMany(finishedGoodsToInsert);
-    const len = inserted.len;
+    const len = inserted.length;
     console.log(`✅ Inserted ${len} finished goods into DB.`);
   } catch (error) {
     console.error("❌ Error inserting finished goods:", error);

@@ -6,7 +6,8 @@ import {
   createRawMaterial,
   updateRawMaterial,
   deleteRawMaterial,
-  getFilteredRawMaterials
+  getFilteredRawMaterials,
+  getRawMaterialsByClass
 } from '../controllers/rawMaterials.js';
 
 /**
@@ -63,6 +64,80 @@ import {
  *           format: date
  *           description: Required for type C
  */
+
+/**
+ * @swagger
+ * /api/raw_material/{class_type}:
+ *   get:
+ *     summary: Get raw materials by class type with pagination and search
+ *     tags: [RawMaterial]
+ *     parameters:
+ *       - in: path
+ *         name: class_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [A, B, C]
+ *         description: Class type of the raw materials
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for filtering by product, casting product, or specification
+ *     responses:
+ *       200:
+ *         description: List of raw materials filtered by class
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 header:
+ *                   type: array
+ *                   description: Array of dynamic field names (depends on class type)
+ *                   items:
+ *                     type: string
+ *                 item:
+ *                   type: array
+ *                   description: List of raw material records
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                         description: Raw material ID
+ *                       data:
+ *                         type: array
+ *                         description: Values corresponding to the header fields
+ *                         items:
+ *                           type: string
+ *                 page_no:
+ *                   type: integer
+ *                   description: Current page number
+ *                 total_pages:
+ *                   type: integer
+ *                   description: Total number of pages
+ *                 total_items:
+ *                   type: integer
+ *                   description: Total number of raw materials matching the filter
+ *       400:
+ *         description: Invalid class type
+ *       500:
+ *         description: Server error
+ */
+router.get("/:class_type", getRawMaterialsByClass);
 
 /**
  * @swagger

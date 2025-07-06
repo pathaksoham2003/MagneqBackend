@@ -5,30 +5,49 @@ import { getFgModelNumber } from "../utils/helper.js";
 
 export const createSale = async (req, res) => {
   try {
-    const saleData = {...req.body, status: "UN_APPROVED"};
-
+    const saleData = { ...req.body, status: "UN_APPROVED" };
     let totalAmount = 0;
-    saleData.finished_goods = saleData.finished_goods.map((item) => {
-      const rate = parseFloat(item.rate_per_unit || 0);
-      const quantity = parseFloat(item.quantity || 0);
-      const itemTotal = rate * quantity;
+    const updatedFinishedGoods = [];
 
+    for (const item of saleData.finished_goods) {
+      const { model, type, ratio, power, rate_per_unit, quantity } = item;
+
+      const finishedGood = await FinishedGoods.findOne({
+        model,
+        type,
+        ratio,
+        power,
+      });
+
+      if (!finishedGood) {
+        return res.status(404).json({
+          error: `Finished good not found for model: ${model}, type: ${type}, ratio: ${ratio}, power: ${power}`,
+        });
+      }
+
+      const rate = parseFloat(rate_per_unit || 0);
+      const qty = parseFloat(quantity || 0);
+      const itemTotal = rate * qty;
       totalAmount += itemTotal;
 
-      return {
-        ...item,
+      updatedFinishedGoods.push({
+        finished_good: finishedGood._id,
+        rate_per_unit: rate.toFixed(2),
+        quantity: qty,
         item_total_price: itemTotal.toFixed(2),
-      };
-    });
+      });
+    }
 
+    saleData.finished_goods = updatedFinishedGoods;
     saleData.total_amount = totalAmount.toFixed(2);
 
     const sale = new Sales(saleData);
     const savedSale = await sale.save();
 
-    res.status(201).json({sale: savedSale});
+    res.status(201).json({ sale: savedSale });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    console.error("Error in createSale:", err);
+    res.status(500).json({ error: err.message });
   }
 };
 

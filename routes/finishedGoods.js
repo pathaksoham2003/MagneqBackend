@@ -1,11 +1,12 @@
-import express from 'express';
+import express from "express";
 import {
   createFinishedGood,
   getAllFinishedGoods,
   getFinishedGoodById,
   updateFinishedGood,
   deleteFinishedGood,
-} from '../controllers/finishedGoods.js';
+  getModelConfig,
+} from "../controllers/finishedGoods.js";
 
 const router = express.Router();
 
@@ -53,8 +54,63 @@ const router = express.Router();
  *         description: Finished good created successfully
  *       400:
  *         description: Bad request
+*/
+router.post("/", createFinishedGood);
+
+/**
+ * @swagger
+ * /api/finished_goods/modal_config:
+ *   get:
+ *     summary: Get model configuration for finished goods dropdowns
+ *     tags: [FinishedGoods]
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved model configurations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               additionalProperties:
+ *                 type: object
+ *                 properties:
+ *                   powers:
+ *                     type: array
+ *                     items:
+ *                       type: number
+ *                       format: float
+ *                   ratios:
+ *                     type: object
+ *                     additionalProperties:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             example:
+ *               MA-102:
+ *                 powers: [0.25, 0.37, 0.5, 0.75]
+ *                 ratios:
+ *                   "0.25": ["15:1", "20:1"]
+ *                   "0.37": ["25:1", "30:1"]
+ *                   "0.5": ["35:1", "40:1"]
+ *                   "0.75": ["35:1", "40:1"]
+ *               MA-128:
+ *                 powers: [0.37, 0.75, 1.1, 1.5]
+ *                 ratios:
+ *                   "1": ["10:1", "15:1"]
+ *                   "2": ["20:1", "25:1"]
+ *               MA-142:
+ *                 powers: [0.75, 1.1, 1.5, 2.2]
+ *                 ratios:
+ *                   "0.75": ["18:1", "22:1"]
+ *                   "1.5": ["26:1", "32:1"]
+ *               MA-162:
+ *                 powers: [1.1, 1.5, 2.2, 3.7]
+ *                 ratios:
+ *                   "2": ["10:1", "12:1"]
+ *                   "3": ["15:1", "18:1"]
+ *       500:
+ *         description: Server error
  */
-router.post('/', createFinishedGood);
+router.get("/modal_config", getModelConfig);
 
 /**
  * @swagger
@@ -66,7 +122,7 @@ router.post('/', createFinishedGood);
  *       200:
  *         description: A list of finished goods
  */
-router.get('/', getAllFinishedGoods);
+router.get("/", getAllFinishedGoods);
 
 /**
  * @swagger
@@ -87,7 +143,8 @@ router.get('/', getAllFinishedGoods);
  *       404:
  *         description: Finished good not found
  */
-router.get('/:id', getFinishedGoodById);
+router.get("/:id", getFinishedGoodById);
+
 
 /**
  * @swagger
@@ -114,7 +171,7 @@ router.get('/:id', getFinishedGoodById);
  *       404:
  *         description: Finished good not found
  */
-router.put('/:id', updateFinishedGood);
+router.put("/:id", updateFinishedGood);
 
 /**
  * @swagger
@@ -135,6 +192,6 @@ router.put('/:id', updateFinishedGood);
  *       404:
  *         description: Finished good not found
  */
-router.delete('/:id', deleteFinishedGood);
+router.delete("/:id", deleteFinishedGood);
 
 export default router;

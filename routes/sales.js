@@ -84,27 +84,52 @@ const router = express.Router();
  *                 items:
  *                   type: object
  *                   properties:
- *                     finished_good:
+ *                     model:
  *                       type: string
+ *                       example: "X200"
+ *                     type:
+ *                       type: string
+ *                       example: "AC"
+ *                     ratio:
+ *                       type: string
+ *                       example: "1:2"
+ *                     power:
+ *                       type: number
+ *                       format: float
+ *                       example: 2.5
  *                     quantity:
  *                       type: number
+ *                       example: 10
  *                     rate_per_unit:
  *                       type: number
  *                       format: float
+ *                       example: 1500.50
  *               customer_name:
  *                 type: string
+ *                 example: "John Doe"
  *               magneq_user:
  *                 type: string
+ *                 example: "sales_rep_01"
  *               description:
  *                 type: string
+ *                 example: "Urgent order"
  *               delivery_date:
  *                 type: string
  *                 format: date
+ *                 example: "2025-07-15"
  *               created_by:
  *                 type: string
+ *                 description: MongoDB ObjectId of the user
+ *                 example: "60f5a3c3f10a5c3f88e8e3b1"
  *     responses:
  *       201:
  *         description: Sale created successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Finished good not found
+ *       500:
+ *         description: Internal server error
  */
 router.post("/", createSale);
 

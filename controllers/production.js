@@ -37,8 +37,20 @@ export const getPendingProductionOrders = async (req, res) => {
 
     const items = productions.map((production) => {
       const fg = production.finished_good;
-
       const orderDetails = getFgModelNumber(fg);
+
+      let statusDetail = null;
+
+      if (production.status === "UN_PROCESSED") {
+        // Check raw material availability
+        const allAvailable = fg.raw_materials.every((rm) => {
+          const stockQty = rm.raw_material_id?.quantity ?? 0;
+          const requiredQty = rm.quantity;
+          return stockQty >= requiredQty;
+        });
+
+        statusDetail = allAvailable ? "IN_STOCK" : "NOT_IN_STOCK";
+      }
 
       return {
         id: production._id,
@@ -46,10 +58,10 @@ export const getPendingProductionOrders = async (req, res) => {
           `PRO-${production.order_id}`,
           production.customer_name || "Unknown Vendor",
           production.createdAt,
-          orderDetails, 
+          orderDetails,
           production.quantity,
-          production.status
-        ]
+          production.status == "UN_PROCESSED" ? statusDetail : production.status,
+        ],
       };
     });
 
@@ -65,7 +77,7 @@ export const getPendingProductionOrders = async (req, res) => {
       item: items,
       page_no: page,
       total_pages: Math.ceil(totalItems / limit),
-      total_items: totalItems
+      total_items: totalItems,
     });
 
   } catch (err) {
@@ -181,6 +193,7 @@ export const startProduction = async (req, res) => {
       production,
     });
   } catch (err) {
+    console.log(err)
     res.status(500).json({ error: err.message });
   }
 };

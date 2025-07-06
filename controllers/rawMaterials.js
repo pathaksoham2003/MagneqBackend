@@ -1,5 +1,5 @@
 import RawMaterial from "../models/RawMaterials.js";
-import {filterFieldsByClass, validateFieldsByClass} from "../utils/helper.js";
+import {classHeaders, filterFieldsByClass, validateFieldsByClass} from "../utils/helper.js";
 
 export const getRawMaterialById = async (req, res) => {
   try {
@@ -10,6 +10,126 @@ export const getRawMaterialById = async (req, res) => {
     res.status(500).json({error: "Error fetching raw material"});
   }
 };
+
+export const getRawMaterialsByClass = async (req, res) => {
+  try {
+    const { class_type } = req.params;
+    const { page = 1, limit = 10, search = "" } = req.query;
+
+    if (!["A", "B", "C"].includes(class_type)) {
+      return res.status(400).json({ error: "Invalid class type" });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const regexSearch = new RegExp(search, "i");
+
+    // Handle class B with grouping by product
+    if (class_type === "B") {
+      const aggregationPipeline = [
+        { $match: { class_type: "B", product: { $regex: regexSearch } } },
+        {
+          $group: {
+            _id: "$product",
+            class_type: { $first: "$class_type" },
+            product: { $first: "$product" },
+            quantity: { $sum: "$quantity" },
+            status: { $first: "$status" },
+            ids: { $addToSet: "$_id" },
+          },
+        },
+        { $skip: skip },
+        { $limit: parseInt(limit) },
+      ];
+
+      const grouped = await RawMaterial.aggregate(aggregationPipeline);
+      const total_items = await RawMaterial.countDocuments({
+        class_type: "B",
+        product: { $regex: regexSearch },
+      });
+      const total_pages = Math.ceil(total_items / limit);
+
+      const item = grouped.map((g) => ({
+        id: g.ids[0],
+        data: [
+          g.class_type || "",
+          g.product || "",
+          g.quantity.toString(),
+          g.type || "",
+        ],
+      }));
+
+      return res.json({
+        header: classHeaders.B,
+        item,
+        page_no: parseInt(page),
+        total_pages,
+        total_items,
+      });
+    }
+
+    // Handle class A and C with direct filtering
+    const searchQuery = {
+      class_type
+    };
+
+    const total_items = await RawMaterial.countDocuments(searchQuery);
+    const rawMaterials = await RawMaterial.find(searchQuery)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    const header = classHeaders[class_type];
+    const item = rawMaterials.map((rm) => {
+      const filtered = filterFieldsByClass(class_type, rm);
+
+      const dataRow = header.map((label) => {
+        switch (label) {
+          case "Class":
+            return filtered.class_type || "";
+          case "Other Specification":
+            return filtered.other_specification?.value || "";
+          case "Quantity":
+            return filtered.quantity?.toString() || "0";
+          case "Casting Product":
+            return filtered.casting_product || "";
+          case "Product":
+            return filtered.product || "";
+          case "Status":
+            return filtered.status || "";
+          case "Select Items":
+            return Array.isArray(filtered.select_items)
+              ? filtered.select_items.join(", ")
+              : "";
+          case "Expiry Date":
+            return filtered.expiry_date
+              ? new Date(filtered.expiry_date).toISOString()
+              : "";
+          default:
+            return "";
+        }
+      });
+
+      return {
+        id: rm._id,
+        data: dataRow,
+      };
+    });
+
+    const total_pages = Math.ceil(total_items / limit);
+
+    return res.json({
+      header,
+      item,
+      page_no: parseInt(page),
+      total_pages,
+      total_items,
+    });
+  } catch (error) {
+    console.error("Error fetching raw materials:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 
 export const getFilteredRawMaterials = async (req, res) => {
   try {
