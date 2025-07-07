@@ -15,6 +15,7 @@ export const insertFinishedGoods = async () => {
     const classB = await RawMaterial.findOne({ class_type: "B", type: "PROCESSED" });
     const classC = await RawMaterial.findOne({ class_type: "C" });
 
+    console.log(classB)
     if (!classA || !classB || !classC) {
       throw new Error("Missing one or more required raw materials (A, processed B, C)");
     }

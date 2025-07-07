@@ -38,28 +38,28 @@
       "model": "M103",
       "quantity": 0,
       "product": "Sun Gear",
-      "status": "UNPROCESSED"
+      "type": "UNPROCESSED"
     },
     {
       "class_type": "B",
       "model": "M104",
       "quantity": 0,
       "product": "Shaft",
-      "status": "HOBBING"
+      "type": "HOBBING"
     },
     {
       "class_type": "B",
       "model": "M105",
       "quantity": 0,
       "product": "Final Drive Gear",
-      "status": "IN_HOUSE_PROCESSING"
+      "type": "IN_HOUSE_PROCESSING"
     },
     {
       "class_type": "B",
       "model": "M106",
       "quantity": 0,
       "product": "Gearbox Cover",
-      "status": "PROCESSED"
+      "type": "PROCESSED"
     },
 
     {
