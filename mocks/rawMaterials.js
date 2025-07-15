@@ -7,14 +7,14 @@ const a = {
     "grade": "SS304",
     "color": "Silver"
   },
-  "casting_product": "Casting Wheel"
+  "name": "Casting Wheel"
 }
 
 // Example B Type product creation body 
 const b = {
   "class_type": "B",
   "quantity": 80,
-  "product": "Raw Gear",
+  "name": "Raw Gear",
   "status": "Available"
 }
 

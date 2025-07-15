@@ -6,36 +6,25 @@ const rawMaterialSchema = new mongoose.Schema({
     enum: ["A", "B", "C"],
     default: null,
   },
-  model: {
-    type: String,
-  },
   other_specification: {
     type: mongoose.Schema.Types.Mixed,
     default: null,
   },
   quantity: {
-    type: Number,
-    required: true,
+    type: mongoose.Schema.Types.Mixed,
+    default: () => ({ processed: 0 }),
   },
   min_quantity: {
     type: Number,
     default: 0,
   },
-  casting_product: {
+  name: {
     type: String,
     default: null,
   },
   type: {
     type: String,
     default: null,
-  },
-  product: {
-    type: String,
-    default: null,
-  },
-  select_items: {
-    type: [mongoose.Schema.Types.Mixed],
-    default: [],
   },
   created_at: {
     type: Date,

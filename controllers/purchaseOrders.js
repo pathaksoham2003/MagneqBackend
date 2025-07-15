@@ -1,7 +1,6 @@
 import { PO_ITEM_STATUS, PO_STATUS } from "../enums/purchase.js";
 import Purchase from "../models/Purchase.js";
 import RawMaterials from "../models/RawMaterials.js";
-import { filterFieldsByClass } from "../utils/helper.js";
 
 export const createPurchaseOrder = async (req, res) => {
   try {
@@ -100,7 +99,6 @@ export const getAllPurchases = async (req, res) => {
   }
 };
 
-
 export const getPurchaseOrderItems = async (req, res) => {
   try {
     const { po_number } = req.params;
@@ -122,7 +120,7 @@ export const getPurchaseOrderItems = async (req, res) => {
 
       resultItems.push({
         item_id: material._id,
-        name: material.product || material.model || "Unnamed",
+        name: material.name || material.model || "Unnamed",
         max_allowed: max_allowed < 0 ? 0 : max_allowed,
       });
     }
@@ -170,7 +168,7 @@ export const addStockToPurchaseOrder = async (req, res) => {
         const addedQtyToStock = finalReceivedQty - previouslyReceived;
 
         poItem.recieved_quantity = finalReceivedQty;
-        poItem.status = finalReceivedQty >= poItem.quantity ? "COMPLETED" : "PENDING";
+        poItem.status = finalReceivedQty >= poItem.quantity ? PO_ITEM_STATUS.COMPLETED : PO_ITEM_STATUS.PENDING;
 
         if (addedQtyToStock > 0) {
           await RawMaterials.findByIdAndUpdate(
@@ -190,7 +188,7 @@ export const addStockToPurchaseOrder = async (req, res) => {
     }
 
     if (allComplete) {
-      purchaseOrder.status = "COMPLETE";
+      purchaseOrder.status = PO_STATUS.COMPLETE;
     }
 
     await purchaseOrder.save();

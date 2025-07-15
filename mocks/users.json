@@ -50,6 +50,39 @@
     }
   },
   {
+    "name": "Developer David",
+    "role": "DEVELOPMER",
+    "password": "developer123",
+    "user_name": "developer",
+    "permissions": {
+      "sidebar": [
+        "finished_good",
+        {
+          "route": "raw_material",
+          "sub_routes": [
+            "A",
+            "B",
+            "C"
+          ]
+        },
+        "manage_users"
+      ],
+      "support": [
+        "email"
+      ],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
     "name": "Charlie Admin",
     "role": "ADMIN",
     "password": "admin123",

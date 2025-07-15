@@ -9,7 +9,7 @@ const routePermissionSchema = new mongoose.Schema(
       trim: true,
     },
     sidebar: {
-      type: [String],
+      type: [mongoose.Schema.Types.Mixed],
       default: [],
     },
     support: {

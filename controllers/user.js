@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import User from "../models/User.js";
-import RoutePermission from "../models/RoutePermission.js"; // ⬅️ Add this
+import RoutePermission from "../models/RoutePermission.js"; 
 
 dotenv.config();
 

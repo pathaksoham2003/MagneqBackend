@@ -109,20 +109,8 @@ router.post("/", createFinishedGood);
  *                   "3": ["15:1", "18:1"]
  *       500:
  *         description: Server error
- */
+*/
 router.get("/modal_config", getModelConfig);
-
-/**
- * @swagger
- * /api/finished_goods:
- *   get:
- *     summary: Get all finished goods
- *     tags: [FinishedGoods]
- *     responses:
- *       200:
- *         description: A list of finished goods
- */
-router.get("/", getAllFinishedGoods);
 
 /**
  * @swagger
@@ -144,6 +132,18 @@ router.get("/", getAllFinishedGoods);
  *         description: Finished good not found
  */
 router.get("/:id", getFinishedGoodById);
+/**
+ * @swagger
+ * /api/finished_goods:
+ *   get:
+ *     summary: Get all finished goods
+ *     tags: [FinishedGoods]
+ *     responses:
+ *       200:
+ *         description: A list of finished goods
+ */
+router.get("/", getAllFinishedGoods);
+
 
 
 /**

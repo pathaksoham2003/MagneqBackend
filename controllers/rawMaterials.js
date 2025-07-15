@@ -1,5 +1,9 @@
 import RawMaterial from "../models/RawMaterials.js";
-import {classHeaders, filterFieldsByClass, validateFieldsByClass} from "../utils/helper.js";
+import {
+  classHeaders,
+  filterFieldsByClass,
+  validateFieldsByClass,
+} from "../utils/helper.js";
 
 export const getRawMaterialById = async (req, res) => {
   try {
@@ -11,10 +15,63 @@ export const getRawMaterialById = async (req, res) => {
   }
 };
 
+export const getRawMaterialFilterConfig = async (req, res) => {
+  try {
+    const config = {
+      A: {
+        names: [],
+        types: [],
+      },
+      B: {
+        types: [],
+      },
+      C: {
+        names: [],
+      },
+    };
+
+    const allMaterials = await RawMaterial.find(
+      {},
+      "class_type name type"
+    ).lean();
+
+    for (const rm of allMaterials) {
+      const classType = rm.class_type;
+      if (!classType) continue;
+
+      if (classType === "A") {
+        if (rm.name && !config.A.names.includes(rm.name)) {
+          config.A.names.push(rm.name);
+        }
+        if (rm.type && !config.A.types.includes(rm.type)) {
+          config.A.types.push(rm.type);
+        }
+      }
+
+      if (classType === "B" && rm.type) {
+        if (!config[classType].types.includes(rm.type)) {
+          config[classType].types.push(rm.type);
+        }
+      }
+
+      if (classType === "C" && rm.name) {
+        if (rm.name && !config.C.names.includes(rm.name)) {
+          config[classType].names.push(rm.name);
+        }
+      }
+    }
+
+    res.status(200).json(config);
+  } catch (e) {
+    console.error("Error building filter config:", e);
+    res.status(500).json({error: "Failed to fetch filter config"});
+  }
+};
+
 export const getRawMaterialsByClass = async (req, res) => {
   try {
     const { class_type } = req.params;
-    const { page = 1, limit = 10, search = "" } = req.query;
+    const { page = 1, limit = 10, search = "", type = "", name = "" } = req.query;
 
     if (!["A", "B", "C"].includes(class_type)) {
       return res.status(400).json({ error: "Invalid class type" });
@@ -22,96 +79,46 @@ export const getRawMaterialsByClass = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const regexSearch = new RegExp(search, "i");
+    const regexType = new RegExp(type, "i");
+    const regexName = new RegExp(name, "i");
 
-    // Handle class B with grouping by product
-    if (class_type === "B") {
-      const aggregationPipeline = [
-        { $match: { class_type: "B", product: { $regex: regexSearch } } },
-        {
-          $group: {
-            _id: "$product",
-            class_type: { $first: "$class_type" },
-            product: { $first: "$product" },
-            quantity: { $sum: "$quantity" },
-            status: { $first: "$status" },
-            ids: { $addToSet: "$_id" },
-          },
-        },
-        { $skip: skip },
-        { $limit: parseInt(limit) },
+    const searchQuery = { class_type };
+
+    if (search) {
+      searchQuery.$or = [
+        { name: { $regex: regexSearch } },
+        { type: { $regex: regexSearch } },
       ];
-
-      const grouped = await RawMaterial.aggregate(aggregationPipeline);
-      const total_items = await RawMaterial.countDocuments({
-        class_type: "B",
-        product: { $regex: regexSearch },
-      });
-      const total_pages = Math.ceil(total_items / limit);
-
-      const item = grouped.map((g) => ({
-        id: g.ids[0],
-        data: [
-          g.class_type || "",
-          g.product || "",
-          g.quantity.toString(),
-          g.type || "",
-        ],
-      }));
-
-      return res.json({
-        header: classHeaders.B,
-        item,
-        page_no: parseInt(page),
-        total_pages,
-        total_items,
-      });
     }
 
-    // Handle class A and C with direct filtering
-    const searchQuery = {
-      class_type
-    };
+    if (type) {
+      searchQuery.type = { $regex: regexType };
+    }
+
+    if (name) {
+      searchQuery.name = { $regex: regexName };
+    }
 
     const total_items = await RawMaterial.countDocuments(searchQuery);
+
     const rawMaterials = await RawMaterial.find(searchQuery)
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
 
-    const header = classHeaders[class_type];
-    const item = rawMaterials.map((rm) => {
-      const filtered = filterFieldsByClass(class_type, rm);
+    const header = ["Class", "Product Name", "Type", "Quantity"];
 
-      const dataRow = header.map((label) => {
-        switch (label) {
-          case "Class":
-            return filtered.class_type || "";
-          case "Other Specification":
-            return filtered.other_specification?.value || "";
-          case "Quantity":
-            return filtered.quantity?.toString() || "0";
-          case "Casting Product":
-            return filtered.casting_product || "";
-          case "Product":
-            return filtered.product || "";
-          case "Status":
-            return filtered.status || "";
-          case "Select Items":
-            return Array.isArray(filtered.select_items)
-              ? filtered.select_items.join(", ")
-              : "";
-          case "Expiry Date":
-            return filtered.expiry_date
-              ? new Date(filtered.expiry_date).toISOString()
-              : "";
-          default:
-            return "";
-        }
-      });
+    const item = rawMaterials.map((rm) => {
+      const quantityStr =
+        typeof rm.quantity === "object"
+          ? Object.entries(rm.quantity || {})
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", ")
+          : rm.quantity?.toString() || "0";
 
       return {
         id: rm._id,
-        data: dataRow,
+        data: [rm.class_type || "", rm.name || "", rm.type || "", quantityStr || "0"],
       };
     });
 
@@ -133,20 +140,13 @@ export const getRawMaterialsByClass = async (req, res) => {
 
 export const getFilteredRawMaterials = async (req, res) => {
   try {
-    const {
-      class_type,
-      type,
-      model,
-      product,
-      casting_product,
-    } = req.query;
+    const {class_type, type, model, name} = req.query;
 
     const filter = {};
     if (class_type) filter.class_type = class_type;
     if (type) filter.type = type;
     if (model) filter.model = model;
-    if (product) filter.product = product;
-    if (casting_product) filter.casting_product = casting_product;
+    if (name) filter.name = name;
 
     const rawMaterials = await RawMaterial.find(filter);
 
@@ -156,7 +156,7 @@ export const getFilteredRawMaterials = async (req, res) => {
 
     res.status(200).json(filteredRawMaterials);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 

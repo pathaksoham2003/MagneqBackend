@@ -2,70 +2,207 @@
   "data": [
     {
       "class_type": "A",
-      "model": "M102",
-      "quantity": 0,
+      "quantity": {
+        "processed": 0
+      },
       "other_specification": {
         "material": "Cast Iron",
         "weight": "7kg",
         "dimension": "120x80x60mm"
       },
-      "casting_product": "UNFLATTEN"
+      "name": "UNFLATTEN"
     },
     {
       "class_type": "A",
-      "model": "M128",
-      "quantity": 0,
+      "quantity": {
+        "processed": 0
+      },
       "other_specification": {
         "material": "Aluminum",
         "weight": "3.2kg",
         "coating": "Anodized"
       },
-      "casting_product": "FLATTEN"
+      "name": "FLATTEN"
     },
     {
       "class_type": "A",
-      "model": "M150",
-      "quantity": 0,
+      "quantity": {
+        "processed": 0
+      },
       "other_specification": {
         "material": "Steel",
         "molding_type": "Sand Cast",
         "finish": "Raw"
       },
-      "casting_product": "FLATTEN"
+      "name": "FLATTEN"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA102",
+        "type": "FOOT",
+        "weight": "6.5kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA102"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA102",
+        "type": "FLANGE",
+        "weight": "6.7kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA102"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA128",
+        "type": "FOOT",
+        "weight": "7.2kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA128"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA128",
+        "type": "FLANGE",
+        "weight": "7.4kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA128"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA142",
+        "type": "FOOT",
+        "weight": "8.1kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA142"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA142",
+        "type": "FLANGE",
+        "weight": "8.3kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA142"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA162",
+        "type": "FOOT",
+        "weight": "9.0kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA162"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MA162",
+        "type": "FLANGE",
+        "weight": "9.2kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA162"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MB160",
+        "type": "FOOT",
+        "weight": "9.5kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MB160"
+    },
+    {
+      "class_type": "A",
+      "quantity": {
+        "processed": 0
+      },
+      "other_specification": {
+        "model": "MB160",
+        "type": "FLANGE",
+        "weight": "9.7kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MB160"
     },
     {
       "class_type": "B",
-      "model": "M103",
-      "quantity": 0,
-      "product": "Sun Gear",
+      "quantity": {
+        "unprocessed": 0
+      },
+      "name": "Sun Gear",
       "type": "UNPROCESSED"
     },
     {
       "class_type": "B",
-      "model": "M104",
-      "quantity": 0,
-      "product": "Shaft",
+      "quantity": {
+        "hobbing": 0
+      },
+      "name": "Shaft",
       "type": "HOBBING"
     },
     {
       "class_type": "B",
-      "model": "M105",
-      "quantity": 0,
-      "product": "Final Drive Gear",
+      "quantity": {
+        "in_house_processing": 0
+      },
+      "name": "Final Drive Gear",
       "type": "IN_HOUSE_PROCESSING"
     },
     {
       "class_type": "B",
-      "model": "M106",
-      "quantity": 0,
-      "product": "Gearbox Cover",
+      "quantity": {
+        "processed": 0
+      },
+      "name": "Gearbox Cover",
       "type": "PROCESSED"
     },
-
     {
       "class_type": "C",
-      "model": "M201",
-      "quantity": 0,
+      "quantity": {
+        "processed": 0
+      },
       "other_specification": {
         "set_type": "Lubricant Kit",
         "contains": "Gear Oil, Grease, Applicator"
@@ -84,8 +221,9 @@
     },
     {
       "class_type": "C",
-      "model": "M202",
-      "quantity": 0,
+      "quantity": {
+        "processed": 0
+      },
       "other_specification": {
         "set_type": "Accessory Kit",
         "contains": "Mounting bolts, Seals, Keys"
@@ -104,8 +242,9 @@
     },
     {
       "class_type": "C",
-      "model": "M203",
-      "quantity": 0,
+      "quantity": {
+        "processed": 0
+      },
       "other_specification": {
         "set_type": "Spacer Kit",
         "material": "Hardened Steel"

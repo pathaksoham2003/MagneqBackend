@@ -7,7 +7,8 @@ import {
   updateRawMaterial,
   deleteRawMaterial,
   getFilteredRawMaterials,
-  getRawMaterialsByClass
+  getRawMaterialsByClass,
+  getRawMaterialFilterConfig
 } from '../controllers/rawMaterials.js';
 
 /**
@@ -38,13 +39,10 @@ import {
  *         quantity:
  *           type: number
  *           description: Quantity of raw material
- *         casting_product:
+ *         name:
  *           type: string
- *           description: Required for type A
+ *           description: Required for type A / B
  *         status:
- *           type: string
- *           description: Required for type B
- *         product:
  *           type: string
  *           description: Required for type B
  *         select_items:
@@ -64,6 +62,69 @@ import {
  *           format: date
  *           description: Required for type C
  */
+
+/**
+ * @swagger
+ * /api/raw_material/filter_config:
+ *   get:
+ *     summary: Get filter configuration for raw materials
+ *     tags: [RawMaterial]
+ *     responses:
+ *       200:
+ *         description: Filter configuration object based on class type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               additionalProperties:
+ *                 type: object
+ *                 properties:
+ *                   label:
+ *                     type: string
+ *                     description: Display name of the filter field
+ *                   type:
+ *                     type: string
+ *                     enum: [text, select]
+ *                     description: Type of input for filter (e.g., dropdown or text input)
+ *                   options:
+ *                     type: array
+ *                     description: List of selectable options (for type=select)
+ *                     items:
+ *                       type: string
+ *       500:
+ *         description: Server error
+ */
+router.get("/filter_config",getRawMaterialFilterConfig)
+
+/**
+ * @swagger
+ * /api/raw_material/search:
+ *   get:
+ *     summary: Get filtered raw materials
+ *     tags: [RawMaterial]
+ *     parameters:
+ *       - in: query
+ *         name: class_type
+ *         schema:
+ *           type: string
+ *           enum: [A, B, C]
+ *       - in: query
+ *         name: type
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: model
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of filtered raw materials
+ */
+router.get('/search', getFilteredRawMaterials);
 
 /**
  * @swagger
@@ -95,7 +156,7 @@ import {
  *         name: search
  *         schema:
  *           type: string
- *         description: Search term for filtering by product, casting product, or specification
+ *         description: Search term for filtering by name, casting name, or specification
  *     responses:
  *       200:
  *         description: List of raw materials filtered by class
@@ -167,40 +228,6 @@ router.get("/:class_type", getRawMaterialsByClass);
  *                     $ref: '#/components/schemas/RawMaterial'
  */
 router.get('/', getAllRawMaterials);
-
-/**
- * @swagger
- * /api/raw_material/search:
- *   get:
- *     summary: Get filtered raw materials
- *     tags: [RawMaterial]
- *     parameters:
- *       - in: query
- *         name: class_type
- *         schema:
- *           type: string
- *           enum: [A, B, C]
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *       - in: query
- *         name: model
- *         schema:
- *           type: string
- *       - in: query
- *         name: product
- *         schema:
- *           type: string
- *       - in: query
- *         name: casting_product
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of filtered raw materials
- */
-router.get('/search', getFilteredRawMaterials);
 
 /**
  * @swagger

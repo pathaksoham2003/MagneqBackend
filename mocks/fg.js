@@ -12,15 +12,12 @@ export const insertFinishedGoods = async () => {
   try {
     // Get 1 raw material of each class
     const classA = await RawMaterial.findOne({ class_type: "A" });
-    const classB = await RawMaterial.findOne({ class_type: "B", type: "PROCESSED" });
+    const classB = await RawMaterial.findOne({ class_type: "B" });
     const classC = await RawMaterial.findOne({ class_type: "C" });
 
-    console.log(classB)
     if (!classA || !classB || !classC) {
       throw new Error("Missing one or more required raw materials (A, processed B, C)");
     }
-
-    await FinishedGoods.deleteMany({});
 
     const finishedGoodsToInsert = [];
 

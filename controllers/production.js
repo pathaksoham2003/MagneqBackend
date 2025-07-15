@@ -2,7 +2,7 @@ import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import RawMaterials from "../models/RawMaterials.js";
 import Sales from "../models/Sales.js";
-import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
+import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
 
 export const getPendingProductionOrders = async (req, res) => {
   try {
@@ -11,7 +11,7 @@ export const getPendingProductionOrders = async (req, res) => {
     const search = req.query.search;
 
     const query = {
-      status: { $ne: "READY" },
+      status: {$ne: "READY"},
     };
 
     if (search) {
@@ -33,7 +33,7 @@ export const getPendingProductionOrders = async (req, res) => {
       })
       .skip((page - 1) * limit)
       .limit(limit)
-      .sort({ createdAt: -1 });
+      .sort({createdAt: -1});
 
     const items = productions.map((production) => {
       const fg = production.finished_good;
@@ -42,11 +42,15 @@ export const getPendingProductionOrders = async (req, res) => {
       let statusDetail = null;
 
       if (production.status === "UN_PROCESSED") {
-        // Check raw material availability
+        // For class A and B check processed quantity only
         const allAvailable = fg.raw_materials.every((rm) => {
-          const stockQty = rm.raw_material_id?.quantity ?? 0;
-          const requiredQty = rm.quantity;
-          return stockQty >= requiredQty;
+          const material = rm.raw_material_id;
+          if (!material || typeof material.quantity !== "object") return false;
+
+          // Use quantity.processed for class A and B
+          const availableQty = material.quantity.processed || 0;
+
+          return availableQty >= rm.quantity;
         });
 
         statusDetail = allAvailable ? "IN_STOCK" : "NOT_IN_STOCK";
@@ -60,7 +64,9 @@ export const getPendingProductionOrders = async (req, res) => {
           production.createdAt,
           orderDetails,
           production.quantity,
-          production.status == "UN_PROCESSED" ? statusDetail : production.status,
+          production.status === "UN_PROCESSED"
+            ? statusDetail
+            : production.status,
         ],
       };
     });
@@ -72,20 +78,18 @@ export const getPendingProductionOrders = async (req, res) => {
         "Date of Creation",
         "Order Details",
         "Quantity",
-        "Status"
+        "Status",
       ],
       item: items,
       page_no: page,
       total_pages: Math.ceil(totalItems / limit),
       total_items: totalItems,
     });
-
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
-
 
 export const getProductionDetails = async (req, res) => {
   try {
@@ -93,7 +97,7 @@ export const getProductionDetails = async (req, res) => {
       "finished_good"
     );
     if (!production)
-      return res.status(404).json({ message: "Production not found" });
+      return res.status(404).json({message: "Production not found"});
 
     const finishedGood = production.finished_good;
     const requiredQuantity = production.quantity || 1;
@@ -104,16 +108,20 @@ export const getProductionDetails = async (req, res) => {
 
     for (const item of finishedGood.raw_materials) {
       const rawMaterial = await RawMaterials.findById(item.raw_material_id);
-      if (!rawMaterial) continue;
+      if (!rawMaterial || typeof rawMaterial.quantity !== "object") continue;
 
       const totalRequired = item.quantity * requiredQuantity;
-      const isInStock = rawMaterial.quantity >= totalRequired;
+
+      // For class A and B use processed quantity for stock check
+      const availableQty = rawMaterial.quantity.processed || 0;
+
+      const isInStock = availableQty >= totalRequired;
 
       const materialInfo = {
         _id: rawMaterial._id,
-        name: rawMaterial.product || "Unnamed",
+        name: rawMaterial.name || "Unnamed",
         required: totalRequired,
-        available: rawMaterial.quantity,
+        available: availableQty,
         in_stock: isInStock,
       };
 
@@ -140,7 +148,7 @@ export const getProductionDetails = async (req, res) => {
       class_c: classC,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 
@@ -154,9 +162,7 @@ export const startProduction = async (req, res) => {
     }
 
     if (production.status !== "UN_PROCESSED") {
-      return res
-        .status(400)
-        .json({ error: "Production must be in UN_PROCESSED state" });
+      return res.status(400).json({ error: "Production must be in UN_PROCESSED state" });
     }
 
     const finishedGood = await FinishedGoods.findById(production.finished_good);
@@ -164,62 +170,71 @@ export const startProduction = async (req, res) => {
       return res.status(404).json({ error: "Finished good not found" });
     }
 
-    const rawMaterialNeeds = new Map();
+    // Loop over each raw_material reference manually
     for (const rm of finishedGood.raw_materials) {
-      const totalQty = rm.quantity * production.quantity;
-      rawMaterialNeeds.set(rm.raw_material_id.toString(), totalQty);
-    }
-
-    for (const [rawMaterialId, requiredQty] of rawMaterialNeeds.entries()) {
-      const material = await RawMaterials.findById(rawMaterialId);
-
-      if (!material || material.quantity < requiredQty) {
-        return res.status(400).json({
-          error: `Insufficient raw material: ${rawMaterialId}`,
-        });
+      const material = await RawMaterials.findById(rm.raw_material_id);
+      if (!material || typeof material.quantity !== "object") {
+        return res.status(400).json({ error: "Invalid raw material found" });
       }
 
-      material.quantity -= requiredQty;
-      material.updated_at = new Date();
-      await material.save();
+      const classType = material.class_type;
+      const requiredQty = rm.quantity * production.quantity;
+
+      if (["A", "B"].includes(classType)) {
+        const availableQty = material.quantity.processed || 0;
+
+        if (availableQty < requiredQty) {
+          return res.status(400).json({
+            error: `Insufficient processed quantity for material: ${material.name || "Unnamed"}`,
+          });
+        }
+
+        // Reduce processed quantity
+        material.quantity.processed = availableQty - requiredQty;
+        material.updated_at = new Date();
+
+        // Mark the quantity field as modified
+        material.markModified("quantity");
+        await material.save();
+      }
     }
 
+    // Update production
     production.status = "IN_PROCESSES";
     production.updated_at = new Date();
     await production.save();
 
     res.json({
-      message: "Production started, raw materials deducted",
+      message: "Production started, raw materials updated successfully",
       production,
     });
   } catch (err) {
-    console.log(err)
+    console.error("Start Production Error:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
 export const makeReady = async (req, res) => {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     const production = await Production.findById(id);
     if (!production)
-      return res.status(404).json({ message: "Production not found" });
+      return res.status(404).json({message: "Production not found"});
 
     production.status = "READY";
     production.updated_at = new Date();
     await production.save();
 
     await FinishedGoods.findByIdAndUpdate(production.finished_good, {
-      $inc: { units: 1 },
+      $inc: {units: 1},
     });
 
-    const salesRecord = await Sales.findOne({ order_id: production.order_id });
+    const salesRecord = await Sales.findOne({order_id: production.order_id});
     if (salesRecord) {
       const fgItem = salesRecord.finished_goods.find(
         (item) =>
-          item.finished_good.toString() ===
-          production.finished_good.toString()
+          item.finished_good.toString() === production.finished_good.toString()
       );
       if (fgItem) {
         fgItem.status = true;
@@ -237,8 +252,8 @@ export const makeReady = async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "Production marked as READY and updates applied" });
+      .json({message: "Production marked as READY and updates applied"});
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };

@@ -1,6 +1,11 @@
 import mongoose from "../utils/db.js";
 
 const qualitySchema = new mongoose.Schema({
+  finished_good: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "FinishedGoods",
+    required: true
+  },
   vendor: {
     type: String,
     maxlength: 200

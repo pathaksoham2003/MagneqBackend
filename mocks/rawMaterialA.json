@@ -1,0 +1,114 @@
+{
+  "data": [
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA102",
+      "type": "FOOT",
+      "other_specification": {
+        "measurement": "6.5kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA102"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA128",
+      "type": "FOOT",
+      "other_specification": {
+        "measurement": "7.0kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA128"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA142",
+      "type": "FOOT",
+      "other_specification": {
+        "measurement": "7.5kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA142"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA162",
+      "type": "FOOT",
+      "other_specification": {
+        "measurement": "8.0kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA162"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MB160",
+      "type": "FOOT",
+      "other_specification": {
+        "measurement": "8.5kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MB160"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA102",
+      "type": "FLANGE",
+      "other_specification": {
+        "measurement": "6.8kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA102"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA128",
+      "type": "FLANGE",
+      "other_specification": {
+        "measurement": "7.3kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA128"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA142",
+      "type": "FLANGE",
+      "other_specification": {
+        "measurement": "7.8kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA142"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MA162",
+      "type": "FLANGE",
+      "other_specification": {
+        "measurement": "8.3kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MA162"
+    },
+    {
+      "class_type": "A",
+      "quantity": { "processed": 0 },
+      "model": "MB160",
+      "type": "FLANGE",
+      "other_specification": {
+        "measurement": "8.8kg",
+        "description": "Random description whatever fits it is a gearbox manufacturing company"
+      },
+      "name": "MB160"
+    }
+  ]
+}

@@ -3,38 +3,112 @@ import Purchase from "../models/Purchase.js";
 import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 
-// TOP CARDS METRICS
+import {startOfMonth, endOfMonth, subMonths} from "date-fns";
+
 export const getTopStats = async (req, res) => {
   try {
-    const [salesAgg, purchaseAgg, ongoingProductions, fgInventoryAgg] =
-      await Promise.all([
-        Sales.aggregate([{ $group: { _id: null, total: { $sum: "$total_amount" } } }]),
-        Purchase.aggregate([{ $group: { _id: null, total: { $sum: "$total_price" } } }]),
-        Production.countDocuments({ status: { $ne: "READY" } }),
-        FinishedGoods.aggregate([{ $group: { _id: null, total: { $sum: "$units" } } }]),
-      ]);
+    const now = new Date();
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+
+    const prevMonth = subMonths(now, 1);
+    const prevMonthStart = startOfMonth(prevMonth);
+    const prevMonthEnd = endOfMonth(prevMonth);
+
+    // Aggregations
+    const [
+      currentSalesAgg,
+      prevSalesAgg,
+      currentPurchaseAgg,
+      prevPurchaseAgg,
+      currentProductions,
+      prevProductions,
+      fgInventoryAgg,
+    ] = await Promise.all([
+      // Sales
+      Sales.aggregate([
+        {$match: {createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd}}},
+        {$group: {_id: null, total: {$sum: "$total_amount"}}},
+      ]),
+      Sales.aggregate([
+        {$match: {createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd}}},
+        {$group: {_id: null, total: {$sum: "$total_amount"}}},
+      ]),
+
+      // Purchases
+      Purchase.aggregate([
+        {
+          $match: {
+            created_at: {$gte: currentMonthStart, $lte: currentMonthEnd},
+          },
+        },
+        {$group: {_id: null, total: {$sum: "$total_price"}}},
+      ]),
+      Purchase.aggregate([
+        {$match: {created_at: {$gte: prevMonthStart, $lte: prevMonthEnd}}},
+        {$group: {_id: null, total: {$sum: "$total_price"}}},
+      ]),
+
+      // Production Orders
+      Production.countDocuments({
+        createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd},
+        status: {$ne: "READY"},
+      }),
+      Production.countDocuments({
+        createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd},
+        status: {$ne: "READY"},
+      }),
+
+      // FG Inventory (total units, not date-based)
+      FinishedGoods.aggregate([{$group: {_id: null, total: {$sum: "$units"}}}]),
+    ]);
+
+    // Extract values or fallback
+    const currentSales = parseFloat(currentSalesAgg[0]?.total || 0);
+    const prevSales = parseFloat(prevSalesAgg[0]?.total || 0);
+
+    const currentPurchase = parseFloat(currentPurchaseAgg[0]?.total || 0);
+    const prevPurchase = parseFloat(prevPurchaseAgg[0]?.total || 0);
+
+    const fgInventory = fgInventoryAgg[0]?.total || 0;
+
+    const calcPercentage = (current, previous) => {
+      if (previous === 0 && current === 0) return "0%";
+      if (previous === 0) return "+∞%";
+
+      const change = ((current - previous) / previous) * 100;
+      const formatted = Math.abs(change).toFixed(2) + "%";
+
+      return change > 0 ? `+${formatted}` : change < 0 ? `-${formatted}` : "0%";
+    };
 
     res.status(200).json({
-      total_sales: salesAgg[0]?.total?.toString() || "0",
-      total_purchases: purchaseAgg[0]?.total?.toString() || "0",
-      ongoing_production_orders: ongoingProductions,
-      current_fg_inventory: fgInventoryAgg[0]?.total || 0,
+      total_sales: currentSales.toFixed(2),
+      total_sales_change: calcPercentage(currentSales, prevSales),
+      total_purchases: currentPurchase.toFixed(2),
+      total_purchases_change: calcPercentage(currentPurchase, prevPurchase),
+      ongoing_production_orders: currentProductions,
+      production_order_change: calcPercentage(
+        currentProductions,
+        prevProductions
+      ),
+      current_fg_inventory: fgInventory,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({error: err.message});
   }
 };
 
-// SALES TABLE DATA
 export const getSalesTable = async (req, res) => {
   try {
     const sales = await Sales.find()
       .populate("finished_goods.finished_good")
-      .sort({ createdAt: -1 })
+      .sort({createdAt: -1})
       .limit(10);
 
-    const salesTable = sales.flatMap(sale =>
-      sale.finished_goods.map(item => ({
+    const salesTable = sales.flatMap((sale) =>
+      sale.finished_goods.map((item) => ({
         order_id: `SO-${sale.order_id}`,
         date: sale.createdAt.toISOString().split("T")[0],
         customer_name: sale.customer_name,
@@ -48,7 +122,7 @@ export const getSalesTable = async (req, res) => {
 
     res.status(200).json(salesTable);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 
@@ -58,17 +132,28 @@ export const getSalesStatistics = async (req, res) => {
     const monthlySales = await Sales.aggregate([
       {
         $group: {
-          _id: { $month: "$createdAt" },
-          salesCount: { $sum: 1 },
-          totalRevenue: { $sum: "$total_amount" },
-        }
+          _id: {$month: "$createdAt"},
+          salesCount: {$sum: 1},
+          totalRevenue: {$sum: "$total_amount"},
+        },
       },
-      { $sort: { "_id": 1 } }
+      {$sort: {_id: 1}},
     ]);
 
     const monthNames = [
-      "", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
 
     const statistics = {
@@ -78,7 +163,7 @@ export const getSalesStatistics = async (req, res) => {
     };
 
     for (let i = 1; i <= 12; i++) {
-      const entry = monthlySales.find(m => m._id === i);
+      const entry = monthlySales.find((m) => m._id === i);
       statistics.months.push(monthNames[i]);
       statistics.sales.push(entry?.salesCount || 0);
       statistics.revenue.push(entry?.totalRevenue?.toString() || "0");
@@ -86,6 +171,6 @@ export const getSalesStatistics = async (req, res) => {
 
     res.status(200).json(statistics);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
