@@ -1,6 +1,6 @@
 import FinishedGoods from "../models/FinishedGoods.js";
 import mongoose from "mongoose";
-import {getFgModelNumber} from "../utils/helper.js"; 
+import {getFgModelNumber} from "../utils/helper.js";
 
 export const createFinishedGood = async (req, res) => {
   try {
@@ -51,7 +51,6 @@ export const getAllFinishedGoods = async (req, res) => {
     res.status(500).json({error: error.message});
   }
 };
-
 
 export const getFinishedGoodById = async (req, res) => {
   try {
@@ -119,8 +118,8 @@ export const getFinishedGoodById = async (req, res) => {
 
 export const updateFinishedGood = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { classA = [], classB = [], classC = [] } = req.body;
+    const {id} = req.params;
+    const {classA = [], classB = [], classC = []} = req.body;
 
     // Combine class A, B, C raw materials into one array
     const allRawMaterials = [...classA, ...classB, ...classC];
@@ -133,21 +132,20 @@ export const updateFinishedGood = async (req, res) => {
 
     const updatedFG = await FinishedGoods.findByIdAndUpdate(
       id,
-      { raw_materials },
-      { new: true }
+      {raw_materials},
+      {new: true}
     ).populate("raw_materials.raw_material_id");
 
     if (!updatedFG) {
-      return res.status(404).json({ message: "Finished good not found" });
+      return res.status(404).json({message: "Finished good not found"});
     }
 
     res.status(200).json(updatedFG);
   } catch (error) {
     console.error("Error updating raw materials:", error);
-    res.status(400).json({ error: error.message });
+    res.status(400).json({error: error.message});
   }
 };
-
 
 export const deleteFinishedGood = async (req, res) => {
   try {

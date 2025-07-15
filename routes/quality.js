@@ -1,10 +1,11 @@
-import express from 'express';
+import express from "express";
 import {
   createQuality,
   getAllQualities,
   updateQuality,
   deleteQuality,
-} from '../controllers/quality.js';
+  getSpecificQualityIssue,
+} from "../controllers/quality.js";
 
 const router = express.Router();
 
@@ -28,21 +29,54 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             required:
- *               - issue
+ *               - issue_type
  *             properties:
- *               vendor:
+ *               issue_type:
  *                 type: string
- *               issue:
+ *                 enum: [Material, Delivery, Process, Employee]
+ *                 description: Type of the issue
+ *               description:
  *                 type: string
- *               action_taken:
- *                 type: boolean
+ *                 description: Description of the issue
+ *               items:
+ *                 type: array
+ *                 description: Required if issue_type is 'Material'
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - model
+ *                     - type
+ *                     - ratio
+ *                     - power
+ *                   properties:
+ *                     model:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *                     ratio:
+ *                       type: string
+ *                     power:
+ *                       type: string
+ *                     order_number:
+ *                       type: string
+ *                       description: Related order number
  *     responses:
  *       201:
- *         description: Quality issue created
+ *         description: Quality issue(s) created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               oneOf:
+ *                 - type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Quality'
+ *                 - $ref: '#/components/schemas/Quality'
+ *       404:
+ *         description: Finished good not found
  *       500:
  *         description: Failed to create quality issue
  */
-router.post('/', createQuality);
+router.post("/", createQuality);
 
 /**
  * @swagger
@@ -56,7 +90,8 @@ router.post('/', createQuality);
  *       500:
  *         description: Failed to fetch quality issues
  */
-router.get('/', getAllQualities);
+router.get("/", getAllQualities);
+router.get("/:id", getSpecificQualityIssue);
 
 /**
  * @swagger
@@ -92,7 +127,7 @@ router.get('/', getAllQualities);
  *       500:
  *         description: Failed to update quality issue
  */
-router.put('/:id', updateQuality);
+router.put("/:id", updateQuality);
 
 /**
  * @swagger
@@ -115,6 +150,6 @@ router.put('/:id', updateQuality);
  *       500:
  *         description: Failed to delete issue
  */
-router.delete('/:id', deleteQuality);
+router.delete("/:id", deleteQuality);
 
 export default router;
