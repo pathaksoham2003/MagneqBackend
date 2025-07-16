@@ -101,6 +101,7 @@ router.get("/filter_config",getRawMaterialFilterConfig)
  * /api/raw_material/search:
  *   get:
  *     summary: Get filtered raw materials
+ *     description: Fetch raw materials filtered by class type, type, model, or name.
  *     tags: [RawMaterial]
  *     parameters:
  *       - in: query
@@ -108,21 +109,50 @@ router.get("/filter_config",getRawMaterialFilterConfig)
  *         schema:
  *           type: string
  *           enum: [A, B, C]
+ *         description: Class type of the raw material (A, B, or C)
  *       - in: query
  *         name: type
  *         schema:
  *           type: string
+ *         description: Specific type of the raw material
  *       - in: query
  *         name: model
  *         schema:
  *           type: string
+ *         description: Model of the raw material
  *       - in: query
  *         name: name
  *         schema:
  *           type: string
+ *         description: Name of the raw material
  *     responses:
  *       200:
  *         description: List of filtered raw materials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   class_type:
+ *                     type: string
+ *                     enum: [A, B, C]
+ *                   type:
+ *                     type: string
+ *                   model:
+ *                     type: string
+ *                   quantity:
+ *                     type: object
+ *                     description: Quantity fields vary by class type
+ *                   [otherFields]:
+ *                     description: Other fields filtered via `filterFieldsByClass`
+ *       500:
+ *         description: Internal server error
  */
 router.get('/search', getFilteredRawMaterials);
 
