@@ -6,7 +6,7 @@
     "user_name": "alice",
     "permissions": {
       "sidebar": [
-        "create_order",
+        "/create_order",
         "track_order",
         "quality"
       ],
@@ -30,7 +30,7 @@
     "user_name": "bob",
     "permissions": {
       "sidebar": [
-        "create_order",
+        "/create_order",
         "track_order",
         "ledger",
         "quality"
@@ -56,7 +56,7 @@
     "user_name": "developer",
     "permissions": {
       "sidebar": [
-        "finished_good",
+        "/finished_good",
         {
           "route": "raw_material",
           "sub_routes": [
@@ -89,7 +89,7 @@
     "user_name": "charlie",
     "permissions": {
       "sidebar": [
-        "dashboard",
+        "/dashboard",
         "sales",
         "production",
         "store",
