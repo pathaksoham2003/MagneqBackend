@@ -31,7 +31,6 @@ export const filterFieldsByClass = (classType, data) => {
           .map(([key, val]) => `${key}: ${val}`)
           .join(", ")
       : String(data.quantity || "0");
-    console.log(data);
   switch (classType) {
     case "A":
       return {

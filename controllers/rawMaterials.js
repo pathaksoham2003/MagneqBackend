@@ -84,19 +84,16 @@ export const getRawMaterialsByClass = async (req, res) => {
 
     const searchQuery = { class_type };
 
-    if (search) {
+    // If either name or type is provided, search by both using $or
+    if (name || type) {
+      searchQuery.$or = [];
+      if (name) searchQuery.$or.push({ name: { $regex: regexName } });
+      if (type) searchQuery.$or.push({ type: { $regex: regexType } });
+    } else if (search) {
       searchQuery.$or = [
         { name: { $regex: regexSearch } },
         { type: { $regex: regexSearch } },
       ];
-    }
-
-    if (type) {
-      searchQuery.type = { $regex: regexType };
-    }
-
-    if (name) {
-      searchQuery.name = { $regex: regexName };
     }
 
     const total_items = await RawMaterial.countDocuments(searchQuery);
