@@ -226,19 +226,22 @@ export const getPurchaseDetails = async (req, res) => {
     const purchase = await Purchase.findById(req.params.po_id).populate({
       path: "items.raw_material_id",
       model: RawMaterials,
-      select: "name type"
+      select: "name type class_type"
     });
-
+    // console.log(purchase)
     if (!purchase) {
       return res.status(404).json({ message: "Purchase Not Found" });
     }
 
 
     const simplifiedItems = purchase.items.map((item) => ({
+      class:item.raw_material_id?.class_type,
       name: item.raw_material_id?.name,
       type: item.raw_material_id?.type,
+      price_per_unit: item.price_per_unit,
+      quantity: item.quantity,
     }));
-
+    console.log(simplifiedItems);
 
     const response = {
       _id: purchase._id,
