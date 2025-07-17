@@ -31,11 +31,13 @@ export const filterFieldsByClass = (classType, data) => {
           .map(([key, val]) => `${key}: ${val}`)
           .join(", ")
       : String(data.quantity || "0");
-
+    console.log(data);
   switch (classType) {
     case "A":
       return {
+        _id:data._id,
         class_type: data.class_type,
+        type:data.type,
         other_specification: {
           value: Object.entries(data.other_specification || {})
             .map(([k, v]) => `${k}: ${v}`)
@@ -46,14 +48,19 @@ export const filterFieldsByClass = (classType, data) => {
       };
     case "B":
       return {
+        _id:data._id,
         class_type: data.class_type,
+        type:data.type,
         name: data.name,
         quantity: quantityStr,
         status: data.type,
       };
     case "C":
       return {
+        _id:data._id,
         class_type: data.class_type,
+        name:data.name,
+        type:data.type,
         other_specification: {
           value: Object.entries(data.other_specification || {})
             .map(([k, v]) => `${k}: ${v}`)
