@@ -5,6 +5,7 @@ import {
   getAllPurchases,
   getPurchaseOrderItems,
   updatePurchaseOrder,
+  getPurchaseDetails
 } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
@@ -217,6 +218,64 @@ router.get('/', getAllPurchases);
  *         description: Internal server error
  */
 router.put('/:id', updatePurchaseOrder);
+
+/**
+ * @swagger
+ * /api/purchase_order/{po_id}:
+ *   get:
+ *     summary: Retrieve details of a specific purchase order
+ *     description: Fetches vendor name, purchasing date, and raw material info for the selected purchase order.
+ *     tags:
+ *       - PurchaseOrder
+ *     parameters:
+ *       - in: path
+ *         name: po_id
+ *         required: true
+ *         description: ID of the purchase order
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved purchase order details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                 vendor_name:
+ *                   type: string
+ *                 purchasing_date:
+ *                   type: string
+ *                   format: date
+ *                 status:
+ *                   type: string
+ *                 po_number:
+ *                   type: string
+ *                 total_price:
+ *                   type: number
+ *                 created_at:
+ *                   type: string
+ *                   format: date-time
+ *                 updated_at:
+ *                   type: string
+ *                   format: date-time
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       name:
+ *                         type: string
+ *                       type:
+ *                         type: string
+ *       404:
+ *         description: Purchase order not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:po_id', getPurchaseDetails);
 
 /**
  * @swagger

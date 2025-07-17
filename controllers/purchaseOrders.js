@@ -220,3 +220,41 @@ export const updatePurchaseOrder = async (req, res) => {
     res.status(500).json({ error: "Failed to update purchase order" });
   }
 };
+
+export const getPurchaseDetails = async (req, res) => {
+  try {
+    const purchase = await Purchase.findById(req.params.po_id).populate({
+      path: "items.raw_material_id",
+      model: RawMaterials,
+      select: "name type"
+    });
+
+    if (!purchase) {
+      return res.status(404).json({ message: "Purchase Not Found" });
+    }
+
+
+    const simplifiedItems = purchase.items.map((item) => ({
+      name: item.raw_material_id?.name,
+      type: item.raw_material_id?.type,
+    }));
+
+
+    const response = {
+      _id: purchase._id,
+      vendor_name: purchase.vendor_name,
+      purchasing_date: purchase.purchasing_date,
+      status: purchase.status,
+      po_number: purchase.po_number,
+      total_price: purchase.total_price,
+      created_at: purchase.created_at,
+      updated_at: purchase.updated_at,
+      items: simplifiedItems
+    };
+
+    return res.status(200).json(response);
+  } catch (err) {
+    console.error("Error fetching purchase:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
