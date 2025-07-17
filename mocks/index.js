@@ -59,8 +59,8 @@ const generateRawMaterialsC = async () => {
         if (value && value.toString().trim()) {
           const rawMaterial = {
             class_type: "C",
-            name: value.toString().trim(),
-            type: type.trim(),
+            name: type.trim(),
+            type: value.toString().trim(),
             quantity: {processed: 0},
             expiry_date: new Date("2026-12-31"), // default/fixed expiry
             other_specification: {
