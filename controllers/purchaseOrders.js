@@ -120,6 +120,7 @@ export const getPurchaseOrderItems = async (req, res) => {
 
       resultItems.push({
         item_id: material._id,
+        _id:item._id,
         name: material.name || material.model || "Unnamed",
         max_allowed: max_allowed < 0 ? 0 : max_allowed,
       });
