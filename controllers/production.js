@@ -119,7 +119,7 @@ export const getProductionDetails = async (req, res) => {
 
       const materialInfo = {
         _id: rawMaterial._id,
-        name: rawMaterial.name || "Unnamed",
+        name: `${rawMaterial.name} | ${rawMaterial.type}` || "Unnamed",
         required: totalRequired,
         available: availableQty,
         in_stock: isInStock,

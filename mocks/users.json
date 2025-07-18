@@ -90,7 +90,7 @@
     "user_name": "charlie",
     "permissions": {
       "sidebar": [
-        "dashboard",
+        "",
         "sales",
         "production",
         "store",

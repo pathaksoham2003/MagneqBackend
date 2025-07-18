@@ -1,17 +1,23 @@
-import { PO_ITEM_STATUS, PO_STATUS } from "../enums/purchase.js";
+import {PO_ITEM_STATUS, PO_STATUS} from "../enums/purchase.js";
 import Purchase from "../models/Purchase.js";
 import RawMaterials from "../models/RawMaterials.js";
 
 export const createPurchaseOrder = async (req, res) => {
   try {
-    const { vendor_name, purchasing_date, items } = req.body;
+    const {vendor_name, purchasing_date, items} = req.body;
 
-    if (!vendor_name || !purchasing_date || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: "Missing required fields or items" });
+    if (
+      !vendor_name ||
+      !purchasing_date ||
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
+      return res.status(400).json({error: "Missing required fields or items"});
     }
 
     const pendingItems = items.map((it) => {
-      const item_total_price = parseFloat(it.price_per_unit || 0) * parseFloat(it.quantity || 0);
+      const item_total_price =
+        parseFloat(it.price_per_unit || 0) * parseFloat(it.quantity || 0);
       return {
         ...it,
         item_total_price: item_total_price.toFixed(2),
@@ -20,7 +26,10 @@ export const createPurchaseOrder = async (req, res) => {
       };
     });
 
-    const total_price = pendingItems.reduce((sum, item) => sum + parseFloat(item.item_total_price || 0), 0);
+    const total_price = pendingItems.reduce(
+      (sum, item) => sum + parseFloat(item.item_total_price || 0),
+      0
+    );
 
     const newOrder = new Purchase({
       vendor_name,
@@ -31,9 +40,11 @@ export const createPurchaseOrder = async (req, res) => {
     });
 
     const saved = await newOrder.save();
-    res.status(201).json({ message: "Purchase order created", order: saved });
+    res.status(201).json({message: "Purchase order created", order: saved});
   } catch (err) {
-    res.status(500).json({ error: "Failed to create purchase order", details: err.message });
+    res
+      .status(500)
+      .json({error: "Failed to create purchase order", details: err.message});
   }
 };
 
@@ -45,7 +56,7 @@ export const getAllPurchases = async (req, res) => {
     const totalCount = await Purchase.countDocuments();
 
     const purchases = await Purchase.find()
-      .sort({ created_at: -1 })
+      .sort({created_at: -1})
       .skip((pageNo - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
       .populate({
@@ -53,8 +64,8 @@ export const getAllPurchases = async (req, res) => {
         select: "class_type",
       });
 
-    const items = purchases.map(purchase => {
-      const classTotals = { A: 0, B: 0, C: 0 };
+    const items = purchases.map((purchase) => {
+      const classTotals = {A: 0, B: 0, C: 0};
 
       for (const item of purchase.items) {
         const mat = item.raw_material_id;
@@ -76,7 +87,7 @@ export const getAllPurchases = async (req, res) => {
           purchase.vendor_name,
           purchase.purchasing_date,
           orderDetails,
-          purchase.status
+          purchase.status,
         ],
       };
     });
@@ -87,7 +98,7 @@ export const getAllPurchases = async (req, res) => {
         "Vendor Name",
         "Date of purchase",
         "Order Details",
-        "Status"
+        "Status",
       ],
       item: items,
       page_no: pageNo,
@@ -95,18 +106,18 @@ export const getAllPurchases = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 
 export const getPurchaseOrderItems = async (req, res) => {
   try {
-    const { po_number } = req.params;
-    const { class_type } = req.query;
+    const {po_number} = req.params;
+    const {class_type} = req.query;
 
-    const order = await Purchase.findOne({ po_number });
+    const order = await Purchase.findOne({po_number});
     if (!order) {
-      return res.status(404).json({ error: "Purchase order not found" });
+      return res.status(404).json({error: "Purchase order not found"});
     }
 
     const resultItems = [];
@@ -131,66 +142,65 @@ export const getPurchaseOrderItems = async (req, res) => {
       items: resultItems,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 
 export const addStockToPurchaseOrder = async (req, res) => {
   try {
-    const { po_id, items } = req.body;
+    const {po_id, items} = req.body;
+    console.log("PO ID",po_id)
+    console.log("Items",items)
 
     if (!po_id || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: "Missing po_id or items array" });
+      return res.status(400).json({error: "Missing po_id or items array"});
     }
 
-    const purchaseOrder = await Purchase.findById(po_id);
+    const purchaseOrder = await Purchase.findById(po_id).populate({
+      path: "items.raw_material_id", 
+      select: "_id class_type", 
+    });
     if (!purchaseOrder) {
-      return res.status(404).json({ error: "Purchase order not found" });
+      return res.status(404).json({error: "Purchase order not found"});
     }
 
-    const itemUpdates = new Map();
+    let allRecieved = false;
     for (const item of items) {
-      if (!item.item_id || typeof item.recieved_quantity !== "number") {
-        return res.status(400).json({ error: "Invalid item format" });
-      }
-      itemUpdates.set(item.item_id, item.recieved_quantity);
-    }
+      for (const poItem of purchaseOrder.items) {
+        console.log(" -->> ",
+          item.item_id,
+          "  +  ",
+          poItem._id,
+          "  +  ",
+          poItem._id.equals(item.item_id)
+        );
+        if (poItem._id.equals(item.item_id)) {
+          allRecieved = true;
+          const incPath =
+            poItem.raw_material_id.class_type === "B" ? "quantity.unprocessed" : "quantity.processed";
+          const oldQuantity = poItem.recieved_quantity;
+          const toAddQuantity = item.recieved_quantity;
+          const newTotal = oldQuantity + toAddQuantity;
+          poItem.recieved_quantity = newTotal;
 
-    let allComplete = true;
-
-    for (const poItem of purchaseOrder.items) {
-      const updateQty = itemUpdates.get(poItem._id.toString());
-
-      if (updateQty !== undefined) {
-        const previouslyReceived = poItem.recieved_quantity || 0;
-        const newTotal = previouslyReceived + updateQty;
-        const finalReceivedQty = Math.min(newTotal, poItem.quantity);
-        const addedQtyToStock = finalReceivedQty - previouslyReceived;
-
-        poItem.recieved_quantity = finalReceivedQty;
-        poItem.status = finalReceivedQty >= poItem.quantity ? PO_ITEM_STATUS.COMPLETED : PO_ITEM_STATUS.PENDING;
-
-        if (addedQtyToStock > 0) {
+          if (newTotal >= poItem.quantity) {
+            poItem.status = PO_ITEM_STATUS.RECIEVED;
+          }
+          allRecieved = allRecieved && newTotal >= poItem.quantity;
           await RawMaterials.findByIdAndUpdate(
             poItem.raw_material_id,
             {
-              $inc: { quantity: addedQtyToStock },
-              $set: { updated_at: new Date() },
+              $inc: {[incPath]: toAddQuantity},
+              $set: {updated_at: new Date()},
             },
-            { new: true }
+            {new: true}
           );
         }
       }
-
-      if ((poItem.recieved_quantity || 0) < poItem.quantity) {
-        allComplete = false;
-      }
     }
-
-    if (allComplete) {
+    if (allRecieved) {
       purchaseOrder.status = PO_STATUS.COMPLETE;
     }
-
     await purchaseOrder.save();
 
     res.status(200).json({
@@ -199,25 +209,25 @@ export const addStockToPurchaseOrder = async (req, res) => {
       updated_items: items.length,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 
 export const updatePurchaseOrder = async (req, res) => {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
     const updatedOrder = await Purchase.findByIdAndUpdate(id, req.body, {
       new: true,
       runValidators: true,
     }).populate("items.raw_material_id");
 
     if (!updatedOrder) {
-      return res.status(404).json({ error: "Purchase order not found" });
+      return res.status(404).json({error: "Purchase order not found"});
     }
 
     res.json(updatedOrder);
   } catch (err) {
-    res.status(500).json({ error: "Failed to update purchase order" });
+    res.status(500).json({error: "Failed to update purchase order"});
   }
 };
 
@@ -226,16 +236,15 @@ export const getPurchaseDetails = async (req, res) => {
     const purchase = await Purchase.findById(req.params.po_id).populate({
       path: "items.raw_material_id",
       model: RawMaterials,
-      select: "name type class_type"
+      select: "name type class_type",
     });
     // console.log(purchase)
     if (!purchase) {
-      return res.status(404).json({ message: "Purchase Not Found" });
+      return res.status(404).json({message: "Purchase Not Found"});
     }
 
-
     const simplifiedItems = purchase.items.map((item) => ({
-      class:item.raw_material_id?.class_type,
+      class: item.raw_material_id?.class_type,
       name: item.raw_material_id?.name,
       type: item.raw_material_id?.type,
       price_per_unit: item.price_per_unit,
@@ -252,12 +261,12 @@ export const getPurchaseDetails = async (req, res) => {
       total_price: purchase.total_price,
       created_at: purchase.created_at,
       updated_at: purchase.updated_at,
-      items: simplifiedItems
+      items: simplifiedItems,
     };
 
     return res.status(200).json(response);
   } catch (err) {
     console.error("Error fetching purchase:", err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({error: err.message});
   }
 };
