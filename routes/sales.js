@@ -7,6 +7,7 @@ import {
   deleteSale,
   approveSale,
 } from "../controllers/sales.js";
+import {authenticate} from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -131,7 +132,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.post("/", createSale);
+router.post("/", authenticate, createSale);
 
 /**
  * @swagger
@@ -215,7 +216,7 @@ router.patch("/:id/approve", approveSale);
  *                   type: integer
  *                   example: 1
  */
-router.get("/", getAllSales);
+router.get("/", authenticate, getAllSales);
 
 /**
  * @swagger

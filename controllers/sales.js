@@ -1,16 +1,20 @@
 import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
-import { getFgModelNumber } from "../utils/helper.js";
+import {getFgModelNumber} from "../utils/helper.js";
 
 export const createSale = async (req, res) => {
   try {
-    const saleData = { ...req.body, status: "UN_APPROVED" };
+    const saleData = {
+      ...req.body,
+      status: "UN_APPROVED",
+      created_by: req.user.id,
+    };
     let totalAmount = 0;
     const updatedFinishedGoods = [];
 
     for (const item of saleData.finished_goods) {
-      const { model, type, ratio, power, rate_per_unit, quantity } = item;
+      const {model, type, ratio, power, rate_per_unit, quantity} = item;
 
       const finishedGood = await FinishedGoods.findOne({
         model,
@@ -40,14 +44,13 @@ export const createSale = async (req, res) => {
 
     saleData.finished_goods = updatedFinishedGoods;
     saleData.total_amount = totalAmount.toFixed(2);
-
     const sale = new Sales(saleData);
     const savedSale = await sale.save();
 
-    res.status(201).json({ sale: savedSale });
+    res.status(201).json({sale: savedSale});
   } catch (err) {
     console.error("Error in createSale:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 
@@ -104,12 +107,16 @@ export const getAllSales = async (req, res) => {
     const PAGE_SIZE = 10;
     const searchOrderId = req.query.search ? parseInt(req.query.search) : null;
 
-    const query = searchOrderId ? { order_id: searchOrderId } : {};
+    const query = searchOrderId ? {order_id: searchOrderId} : {};
+
+    if (req.user?.role === "CUSTOMER") {
+      query.created_by = req.user.id;
+    }
 
     const totalCount = await Sales.countDocuments(query);
 
     const sales = await Sales.find(query)
-      .sort({ createdAt: -1 })
+      .sort({createdAt: -1})
       .skip((pageNo - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
       .populate({
@@ -121,8 +128,8 @@ export const getAllSales = async (req, res) => {
         select: "name user_name role",
       });
 
-    const items = sales.map(sale => {
-      const orderDetails = sale.finished_goods.map(fg => {
+    const items = sales.map((sale) => {
+      const orderDetails = sale.finished_goods.map((fg) => {
         const fgData = fg.finished_good;
         return `${getFgModelNumber(fgData)}/${fg.quantity}`;
       });
@@ -135,19 +142,25 @@ export const getAllSales = async (req, res) => {
           sale.customer_name,
           orderDetails,
           sale.status,
-        ]
+        ],
       };
     });
 
     res.status(200).json({
-      header: ["Order Id", "Date of Creation", "Customer Name", "Order Details", "Status"],
+      header: [
+        "Order Id",
+        "Date of Creation",
+        "Customer Name",
+        "Order Details",
+        "Status",
+      ],
       item: items,
       page_no: pageNo,
       total_pages: Math.ceil(totalCount / PAGE_SIZE),
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 

@@ -1,19 +1,28 @@
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const { JWT_SECRET } = process.env;
 
-export const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader?.split(' ')[1];
+export const authenticate = (req, res, next) => {
+  try {
+    let token;
+    const authHeader = req.headers["authorization"] || req.header("Authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
 
-  if (!token) return res.status(403).json({ error: 'No token provided' });
+    if (!token) {
+      return res.status(401).json({ error: "Authorization token missing" });
+    }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token verification failed' });
-    req.user = user;
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    req.user = decoded;
+
     next();
-  });
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid or expired token", details: err.message });
+  }
 };

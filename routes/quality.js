@@ -6,6 +6,7 @@ import {
   deleteQuality,
   getSpecificQualityIssue,
 } from "../controllers/quality.js";
+import {authenticate} from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -76,7 +77,7 @@ const router = express.Router();
  *       500:
  *         description: Failed to create quality issue
  */
-router.post("/", createQuality);
+router.post("/", authenticate, createQuality);
 
 /**
  * @swagger
@@ -90,7 +91,7 @@ router.post("/", createQuality);
  *       500:
  *         description: Failed to fetch quality issues
  */
-router.get("/", getAllQualities);
+router.get("/", authenticate, getAllQualities);
 router.get("/:id", getSpecificQualityIssue);
 
 /**
