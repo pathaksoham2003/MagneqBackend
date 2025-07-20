@@ -480,7 +480,7 @@ router.delete('/:id', deleteRawMaterial);
  *                 description: Destination field in quantity object
  *               quantity:
  *                 type: number
- *                 description: Amount to transition (default: 1)
+ *                 description: "Amount to transition (default: 1)"
  *     responses:
  *       200:
  *         description: Quantity transitioned successfully
