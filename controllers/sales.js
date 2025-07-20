@@ -141,7 +141,7 @@ export const rejectSale = async (req, res) => {
     if (sale.status !== "UN_APPROVED") {
       return res.status(400).json({error: "Sale is already processed"});
     }
-    sale.status = "REJECTED";
+    sale.status = "CANCELLED";
     sale.updated_at = new Date();
     await sale.save();
     res.status(200).json({message: "Sale rejected", sale});
