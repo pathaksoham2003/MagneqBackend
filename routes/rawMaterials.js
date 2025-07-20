@@ -3,12 +3,15 @@ const router = express.Router();
 import {
   getAllRawMaterials,
   getRawMaterialById,
+  getRawMaterialByClassAndId,
   createRawMaterial,
   updateRawMaterial,
   deleteRawMaterial,
   getFilteredRawMaterials,
   getRawMaterialsByClass,
-  getRawMaterialFilterConfig
+  getRawMaterialFilterConfig,
+  getRawMaterialStockStats,
+  transitionQuantity
 } from '../controllers/rawMaterials.js';
 
 /**
@@ -95,6 +98,52 @@ import {
  *         description: Server error
  */
 router.get("/filter_config",getRawMaterialFilterConfig)
+
+/**
+ * @swagger
+ * /api/raw_material/stock_stats:
+ *   get:
+ *     summary: Get stock statistics for raw materials by class type
+ *     tags: [RawMaterial]
+ *     responses:
+ *       200:
+ *         description: Stock statistics for each class type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 A:
+ *                   type: object
+ *                   properties:
+ *                     inStock:
+ *                       type: number
+ *                       description: Number of items in stock
+ *                     outOfStock:
+ *                       type: number
+ *                       description: Number of items out of stock
+ *                 B:
+ *                   type: object
+ *                   properties:
+ *                     inStock:
+ *                       type: number
+ *                       description: Number of items in stock
+ *                     outOfStock:
+ *                       type: number
+ *                       description: Number of items out of stock
+ *                 C:
+ *                   type: object
+ *                   properties:
+ *                     inStock:
+ *                       type: number
+ *                       description: Number of items in stock
+ *                     outOfStock:
+ *                       type: number
+ *                       description: Number of items out of stock
+ *       500:
+ *         description: Server error
+ */
+router.get("/stock_stats", getRawMaterialStockStats);
 
 /**
  * @swagger
@@ -232,6 +281,48 @@ router.get("/:class_type", getRawMaterialsByClass);
 
 /**
  * @swagger
+ * /api/raw_material/{class_type}/{id}:
+ *   get:
+ *     summary: Get a raw material by class type and ID
+ *     tags: [RawMaterial]
+ *     parameters:
+ *       - in: path
+ *         name: class_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [A, B, C]
+ *         description: Class type of the raw material
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Raw material ID
+ *     responses:
+ *       200:
+ *         description: A raw material object filtered by class type
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   description: Raw material data filtered by class type
+ *       400:
+ *         description: Invalid class type
+ *       404:
+ *         description: Raw material not found
+ *       500:
+ *         description: Server error
+ */
+router.get("/:class_type/:id", getRawMaterialByClassAndId);
+
+/**
+ * @swagger
  * /api/raw_material:
  *   get:
  *     summary: Get all raw materials grouped by class_type
@@ -353,5 +444,53 @@ router.put('/:id', updateRawMaterial);
  *         description: Not found
  */
 router.delete('/:id', deleteRawMaterial);
+
+/**
+ * @swagger
+ * /api/raw_material/{class_type}/{id}/transition:
+ *   patch:
+ *     summary: Transition quantity between fields in raw material
+ *     tags: [RawMaterial]
+ *     parameters:
+ *       - in: path
+ *         name: class_type
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [A, B, C]
+ *         description: Class type of the raw material
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Raw material ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               from:
+ *                 type: string
+ *                 description: Source field in quantity object
+ *               to:
+ *                 type: string
+ *                 description: Destination field in quantity object
+ *               quantity:
+ *                 type: number
+ *                 description: Amount to transition (default: 1)
+ *     responses:
+ *       200:
+ *         description: Quantity transitioned successfully
+ *       400:
+ *         description: Invalid transition request
+ *       404:
+ *         description: Raw material not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:class_type/:id/transition', transitionQuantity);
 
 export default router;

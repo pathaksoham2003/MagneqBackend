@@ -6,6 +6,7 @@ import {
   updateSale,
   deleteSale,
   approveSale,
+  rejectSale,
 } from "../controllers/sales.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 
@@ -156,6 +157,28 @@ router.post("/", authenticate, createSale);
  *         description: Sale is already approved or processed
  */
 router.patch("/:id/approve", approveSale);
+/**
+ * @swagger
+ * /api/sales/{id}/reject:
+ *   patch:
+ *     summary: Reject a sales order
+ *     tags: [Sales]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: The ID of the sales order to reject
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Sale rejected
+ *       404:
+ *         description: Sale not found
+ *       400:
+ *         description: Sale is already processed
+ */
+router.patch("/:id/reject", rejectSale);
 
 /**
  * @swagger

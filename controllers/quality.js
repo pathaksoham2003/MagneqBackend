@@ -79,18 +79,19 @@ export const getAllQualities = async (req, res) => {
     const totalItems = await Quality.countDocuments(query);
     const qualityIssues = await Quality.find(query)
       .populate("finished_good")
+      .populate("created_by")
       .sort({createdAt: -1})
       .skip(skip)
       .limit(parseInt(limit));
 
     const response = {
-      header: ["Ticket ID", "Vendor name", "Date", "Issue", "Action Taken"],
+      header: ["Ticket ID", "Created By", "Date", "Issue", "Action Taken"],
       item: qualityIssues.map((issue) => {
         return {
           id: issue._id,
           data: [
             issue._id.toString().slice(-4).toUpperCase(),
-            issue.vendor || "N/A",
+            issue.created_by.name || "N/A",
             new Date(issue.created_at).toLocaleDateString("en-GB"),
             issue.issue_type,
             issue.action_taken ? "YES" : "NO",
@@ -113,7 +114,7 @@ export const getSpecificQualityIssue = async (req, res) => {
   try {
     const {id} = req.params;
 
-    const qualityIssue = await Quality.findById(id).populate("finished_good");
+    const qualityIssue = await Quality.findById(id).populate("finished_good").populate("created_by");
 
     if (!qualityIssue) {
       return res.status(404).json({error: "Quality issue not found"});

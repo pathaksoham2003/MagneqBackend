@@ -25,28 +25,34 @@ export const getTopStats = async (req, res) => {
       prevProductions,
       fgInventoryAgg,
     ] = await Promise.all([
-      // Sales
+      // Sales (only certain statuses)
       Sales.aggregate([
-        {$match: {createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd}}},
-        {$group: {_id: null, total: {$sum: "$total_amount"}}},
+        { $match: {
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] }
+        } },
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
       Sales.aggregate([
-        {$match: {createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd}}},
-        {$group: {_id: null, total: {$sum: "$total_amount"}}},
+        { $match: {
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] }
+        } },
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
 
-      // Purchases
+      // Purchases (only items with status RECIEVED)
       Purchase.aggregate([
-        {
-          $match: {
-            created_at: {$gte: currentMonthStart, $lte: currentMonthEnd},
-          },
-        },
-        {$group: {_id: null, total: {$sum: "$total_price"}}},
+        { $match: { created_at: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
+        { $unwind: "$items" },
+        { $match: { "items.status": "RECIEVED" } },
+        { $group: { _id: null, total: { $sum: { $toDouble: "$items.item_total_price" } } } },
       ]),
       Purchase.aggregate([
-        {$match: {created_at: {$gte: prevMonthStart, $lte: prevMonthEnd}}},
-        {$group: {_id: null, total: {$sum: "$total_price"}}},
+        { $match: { created_at: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
+        { $unwind: "$items" },
+        { $match: { "items.status": "RECIEVED" } },
+        { $group: { _id: null, total: { $sum: { $toDouble: "$items.item_total_price" } } } },
       ]),
 
       // Production Orders
@@ -130,14 +136,15 @@ export const getSalesTable = async (req, res) => {
 export const getSalesStatistics = async (req, res) => {
   try {
     const monthlySales = await Sales.aggregate([
+      { $match: { status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] } } },
       {
         $group: {
-          _id: {$month: "$createdAt"},
-          salesCount: {$sum: 1},
-          totalRevenue: {$sum: "$total_amount"},
+          _id: { $month: "$createdAt" },
+          salesCount: { $sum: 1 },
+          totalRevenue: { $sum: "$total_amount" },
         },
       },
-      {$sort: {_id: 1}},
+      { $sort: { _id: 1 } },
     ]);
 
     const monthNames = [

@@ -1,7 +1,8 @@
 import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
-import {getFgModelNumber} from "../utils/helper.js";
+import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
+import mongoose from 'mongoose'
 
 export const createSale = async (req, res) => {
   try {
@@ -57,6 +58,7 @@ export const createSale = async (req, res) => {
 export const approveSale = async (req, res) => {
   try {
     const {id} = req.params;
+    const {finished_goods} = req.body;
     const sale = await Sales.findById(id);
 
     if (!sale) {
@@ -67,6 +69,33 @@ export const approveSale = async (req, res) => {
       return res
         .status(400)
         .json({error: "Sale is already approved or processed"});
+    }
+
+    // If rates are provided, update them before approval
+    if (Array.isArray(finished_goods) && finished_goods.length) {
+      let totalAmount = 0;
+      // Update only the rates for matching fg_id
+      sale.finished_goods = sale.finished_goods.map((origItem) => {
+        const updateItem = finished_goods.find(fg => {
+          // fg_id can be string or ObjectId, so compare as string
+          return fg.fg_id?.toString() === origItem.finished_good.toString();
+        });
+        if (updateItem) {
+          const rate = parseFloat(updateItem.rate_per_unit || 0);
+          const quantity = parseFloat(updateItem.quantity || origItem.quantity || 0);
+          const itemTotal = rate * quantity;
+          totalAmount += itemTotal;
+          return {
+            ...origItem.toObject(),
+            rate_per_unit: rate,
+            item_total_price: itemTotal.toFixed(2),
+          };
+        } else {
+          totalAmount += parseFloat(origItem.item_total_price || 0);
+          return origItem;
+        }
+      });
+      sale.total_amount = totalAmount.toFixed(2);
     }
 
     sale.status = "INPROCESS";
@@ -96,6 +125,26 @@ export const approveSale = async (req, res) => {
     res
       .status(200)
       .json({message: "Sale approved", sale, productions: productionRecords});
+  } catch (err) {
+    res.status(500).json({error: err.message});
+  }
+};
+
+// Add a rejectSale endpoint
+export const rejectSale = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const sale = await Sales.findById(id);
+    if (!sale) {
+      return res.status(404).json({error: "Sale not found"});
+    }
+    if (sale.status !== "UN_APPROVED") {
+      return res.status(400).json({error: "Sale is already processed"});
+    }
+    sale.status = "REJECTED";
+    sale.updated_at = new Date();
+    await sale.save();
+    res.status(200).json({message: "Sale rejected", sale});
   } catch (err) {
     res.status(500).json({error: err.message});
   }
@@ -169,9 +218,42 @@ export const getSaleById = async (req, res) => {
     const sale = await Sales.findById(req.params.id)
       .populate("finished_goods.finished_good")
       .populate("created_by");
+
+    const header = [
+      "Quantity",
+      "Finished Good",
+      "Rate per Unit",
+      "Item Total Price",
+      "Status",
+    ];
+
+    const headerLevelData = {
+      "Order Id": sale.order_id,
+      "Date of Creation": sale.createdAt,
+      "Customer Name": sale.customer_name,
+      "Order Details": sale.finished_goods.map((item) => {
+        return `${getFgModelNumber(item.finished_good)}/${item.quantity}`;
+      }),
+      Status: sale.status,
+    };
+
+    const finishedGoods = sale.finished_goods.map((item) => {
+      return {
+        fg_id:item.finished_good._id,
+        quantity: item.quantity,
+        finished_good: getFgModelNumber(item.finished_good),
+        rate_per_unit: Number(item.rate_per_unit),
+        item_total_price: Number(item.item_total_price),
+        status: item.status,
+      };
+    });
+
     if (!sale) return res.status(404).json({message: "Sale not found"});
-    res.status(200).json(sale);
+    res
+      .status(200)
+      .json({headerLevelData, itemLevelData: {header, items: finishedGoods}});
   } catch (err) {
+    console.log(err)
     res.status(500).json({error: err.message});
   }
 };

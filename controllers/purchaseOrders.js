@@ -150,8 +150,6 @@ export const getPurchaseOrderItems = async (req, res) => {
 export const addStockToPurchaseOrder = async (req, res) => {
   try {
     const {po_id, items} = req.body;
-    console.log("PO ID",po_id)
-    console.log("Items",items)
 
     if (!po_id || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({error: "Missing po_id or items array"});
@@ -251,7 +249,6 @@ export const getPurchaseDetails = async (req, res) => {
       price_per_unit: item.price_per_unit,
       quantity: item.quantity,
     }));
-    console.log(simplifiedItems);
 
     const response = {
       _id: purchase._id,
