@@ -7,6 +7,7 @@ import {
   deleteSale,
   approveSale,
   rejectSale,
+  updateSaleStatus,
 } from "../controllers/sales.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 
@@ -300,5 +301,56 @@ router.put("/:id", updateSale);
  *         description: Sale deleted successfully
  */
 router.delete("/:id", deleteSale);
+
+/**
+ * @swagger
+ * /api/sales/{id}/status:
+ *   patch:
+ *     summary: Update Sales Order Status
+ *     description: Progresses the status of a sales order (e.g., from PROCESSED to DISPATCHED, then DELIVERED).
+ *     tags:
+ *       - Sales
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Unique identifier for the sales order
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PROCESSED, DISPATCHED, DELIVERED]
+ *                 example: DISPATCHED
+ *             required:
+ *               - status
+ *     responses:
+ *       200:
+ *         description: Status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Status updated to DISPATCHED
+ *                 updatedStatus:
+ *                   type: string
+ *                   example: DISPATCHED
+ *       400:
+ *         description: Invalid status or missing ID
+ *       404:
+ *         description: Sales order not found
+ *       500:
+ *         description: Server error
+ */
+router.patch("/:id/status", updateSaleStatus);
 
 export default router;

@@ -301,3 +301,17 @@ export const deleteSale = async (req, res) => {
     res.status(500).json({error: err.message});
   }
 };
+
+export const updateSaleStatus = async (req, res) => {
+  try{
+    const {status} =req.body;
+    if (!status) {
+      return res.status(400).json({ message: "Status is required" });
+    }
+    const sale = await Sales.findByIdAndUpdate(req.params.id, {status}, {new:true} );
+    if (!sale) return  res.status(404).json({message: "Sale not found"});
+    res.status(200).json({message : "Status updated"});
+  } catch (err){
+    res.status(500).json({error : err.message});
+  }
+}
