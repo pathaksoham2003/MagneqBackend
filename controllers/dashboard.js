@@ -8,8 +8,8 @@ import {startOfMonth, endOfMonth, subMonths} from "date-fns";
 export const getTopStats = async (req, res) => {
   try {
     const now = new Date();
-    const currentMonthStart = startOfMonth(now);
-    const currentMonthEnd = endOfMonth(now);
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const prevMonth = subMonths(now, 1);
     const prevMonthStart = startOfMonth(prevMonth);
@@ -29,7 +29,7 @@ export const getTopStats = async (req, res) => {
       Sales.aggregate([
         { $match: {
             createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] }
+            status: { $nin: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] }
         } },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
@@ -136,7 +136,7 @@ export const getSalesTable = async (req, res) => {
 export const getSalesStatistics = async (req, res) => {
   try {
     const monthlySales = await Sales.aggregate([
-      { $match: { status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] } } },
+      { $match: { status: { $nin: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] } } },
       {
         $group: {
           _id: { $month: "$createdAt" },
