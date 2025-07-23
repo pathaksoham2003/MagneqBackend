@@ -61,8 +61,7 @@ const router = express.Router();
  *       400:
  *         description: Missing or invalid input
  */
-router.get("/user", getUsers);
-router.post("/user", createUser);
+router.post("/manage_user", createUser);
 
 /**
  * @swagger

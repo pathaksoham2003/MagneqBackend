@@ -117,17 +117,54 @@ export const getRawMaterialsByClass = async (req, res) => {
 
 export const getUsersByRole = async (req, res) => {
   try {
-    const { role } = req.query;
-    console.log("CONSOLE",role)
+    const { role, page = 1, search = "" } = req.query;
+    const PAGE_SIZE = 10;
+    const pageNo = parseInt(page);
+
     let filter = {};
+
+    // Filter by role
     if (role === 'CUSTOMER' || role === 'SUPPLIER') {
       filter.role = role;
     } else {
       filter.role = { $nin: ['CUSTOMER', 'SUPPLIER'] };
     }
-    const users = await User.find(filter);
-    res.json(users).status(200);
+
+    // Apply search if provided
+    if (search.trim() !== "") {
+      const searchRegex = { $regex: search, $options: "i" }; // case-insensitive
+      filter.$or = [
+        { name: searchRegex },
+        { user_name: searchRegex },
+        { role: searchRegex },
+      ];
+    }
+
+    const totalCount = await User.countDocuments(filter);
+
+    const users = await User.find(filter)
+      .skip((pageNo - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE)
+      .sort({ created_at: -1 });
+
+    const formattedUsers = users.map(user => ({
+      name: user.name,
+      user_name: user.user_name,
+      role: user.role,
+      created_at: user.created_at?.toISOString().split('T')[0] || '',
+    }));
+
+    res.status(200).json({
+      header: ['Name', 'Username', 'Role', 'Created At'],
+      item: formattedUsers,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalCount / PAGE_SIZE),
+      total_items: totalCount,
+    });
   } catch (err) {
+    console.error('Error in getUsersByRole:', err);
     res.status(500).json({ error: 'Failed to fetch users by role' });
   }
 };
+
+
