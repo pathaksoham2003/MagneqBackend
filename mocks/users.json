@@ -65,6 +65,8 @@
             "C"
           ]
         },
+        "manage_suppliers",
+        "manage_customers",
         "manage_users"
       ],
       "support": [
@@ -107,6 +109,26 @@
         "/store",
         "/purchase",
         "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
+    "name": "Production Executive",
+    "role": "PRODUCTION_EXEC",
+    "password": "production123",
+    "user_name": "production",
+    "permissions": {
+      "sidebar": [
+        "production"
+      ],
+      "support": [
+        "chat",
+        "email"
+      ],
+      "allowed_routes": [
+        "/production",
         "/chat",
         "/email"
       ]

@@ -154,38 +154,42 @@ export const getProductionDetails = async (req, res) => {
 
 export const startProduction = async (req, res) => {
   try {
-    const { id } = req.params;
+    const {id} = req.params;
 
     const production = await Production.findById(id);
     if (!production) {
-      return res.status(404).json({ error: "Production not found" });
+      return res.status(404).json({error: "Production not found"});
     }
 
     if (production.status !== "UN_PROCESSED") {
-      return res.status(400).json({ error: "Production must be in UN_PROCESSED state" });
+      return res
+        .status(400)
+        .json({error: "Production must be in UN_PROCESSED state"});
     }
 
     const finishedGood = await FinishedGoods.findById(production.finished_good);
     if (!finishedGood) {
-      return res.status(404).json({ error: "Finished good not found" });
+      return res.status(404).json({error: "Finished good not found"});
     }
 
     // Loop over each raw_material reference manually
     for (const rm of finishedGood.raw_materials) {
       const material = await RawMaterials.findById(rm.raw_material_id);
       if (!material || typeof material.quantity !== "object") {
-        return res.status(400).json({ error: "Invalid raw material found" });
+        return res.status(400).json({error: "Invalid raw material found"});
       }
 
       const classType = material.class_type;
       const requiredQty = rm.quantity * production.quantity;
 
-      if (["A", "B"].includes(classType)) {
+      if (["A", "B", "C"].includes(classType)) {
         const availableQty = material.quantity.processed || 0;
 
         if (availableQty < requiredQty) {
           return res.status(400).json({
-            error: `Insufficient processed quantity for material: ${material.name || "Unnamed"}`,
+            error: `Insufficient processed quantity for material: ${
+              material.name || "Unnamed"
+            }`,
           });
         }
 
@@ -210,7 +214,7 @@ export const startProduction = async (req, res) => {
     });
   } catch (err) {
     console.error("Start Production Error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({error: err.message});
   }
 };
 

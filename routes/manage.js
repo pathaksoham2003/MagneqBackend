@@ -4,6 +4,7 @@ import {
   getFinishedGoods,
   getRawMaterialsByClass,
   getUsers,
+  getUsersByRole,
 } from "../controllers/manage.js";
 
 const router = express.Router();
@@ -62,6 +63,24 @@ const router = express.Router();
  */
 router.get("/user", getUsers);
 router.post("/user", createUser);
+
+/**
+ * @swagger
+ * /api/user:
+ *   get:
+ *     summary: Get users by role
+ *     tags: [Users]
+ *     parameters:
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *         required: true
+ *     responses:
+ *       200:
+ *         description: Users filtered by role
+ */
+router.get('/manage_user', getUsersByRole);
 
 /**
  * @swagger

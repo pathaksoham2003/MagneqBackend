@@ -114,3 +114,20 @@ export const getRawMaterialsByClass = async (req, res) => {
     res.status(400).json(e);
   }
 };
+
+export const getUsersByRole = async (req, res) => {
+  try {
+    const { role } = req.query;
+    console.log("CONSOLE",role)
+    let filter = {};
+    if (role === 'CUSTOMER' || role === 'SUPPLIER') {
+      filter.role = role;
+    } else {
+      filter.role = { $nin: ['CUSTOMER', 'SUPPLIER'] };
+    }
+    const users = await User.find(filter);
+    res.json(users).status(200);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users by role' });
+  }
+};

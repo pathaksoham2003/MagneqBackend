@@ -166,13 +166,6 @@ export const addStockToPurchaseOrder = async (req, res) => {
     let allRecieved = false;
     for (const item of items) {
       for (const poItem of purchaseOrder.items) {
-        console.log(" -->> ",
-          item.item_id,
-          "  +  ",
-          poItem._id,
-          "  +  ",
-          poItem._id.equals(item.item_id)
-        );
         if (poItem._id.equals(item.item_id)) {
           allRecieved = true;
           const incPath =
