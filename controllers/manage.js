@@ -80,7 +80,6 @@ export const getFinishedGoods = async (req, res) => {
 
     const data = await FinishedGoods.find(filter).lean();
 
-    // Inject model number into each item
     const enhancedData = data.map((item) => ({
       ...item,
       model_number: getFgModelNumber(item),

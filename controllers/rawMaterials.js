@@ -209,14 +209,6 @@ export const createRawMaterial = async (req, res) => {
       return res.status(400).json({error: "class_type is required"});
     }
 
-    const missingFields = validateFieldsByClass(class_type, req.body);
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        error: "Validation failed",
-        missingFields,
-      });
-    }
-
     const material = new RawMaterial(req.body);
     await material.save();
     res.status(201).json({message: "Raw material created", material});
