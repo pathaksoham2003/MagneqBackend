@@ -7,10 +7,25 @@ import {
   deleteSale,
   approveSale,
   rejectSale,
+  updateSaleStatus,
+  saleAmountRecieved,
+  getTopStats,
 } from "../controllers/sales.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * /api/sales/top-stats:
+ *   get:
+ *     summary: Get top statistics
+ *     tags: [Sales]
+ *     responses:
+ *       200:
+ *         description: Sales top statistics fetched
+ */
+router.get("/top-stats", getTopStats);
 
 /**
  * @swagger
@@ -300,5 +315,102 @@ router.put("/:id", updateSale);
  *         description: Sale deleted successfully
  */
 router.delete("/:id", deleteSale);
+
+/**
+ * @swagger
+ * /api/sales/{id}/status:
+ *   patch:
+ *     summary: Update Sales Order Status
+ *     description: Progresses the status of a sales order (e.g., from PROCESSED to DISPATCHED, then DELIVERED).
+ *     tags:
+ *       - Sales
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Unique identifier for the sales order
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [PROCESSED, DISPATCHED, DELIVERED]
+ *                 example: DISPATCHED
+ *             required:
+ *               - status
+ *     responses:
+ *       200:
+ *         description: Status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Status updated to DISPATCHED
+ *                 updatedStatus:
+ *                   type: string
+ *                   example: DISPATCHED
+ *       400:
+ *         description: Invalid status or missing ID
+ *       404:
+ *         description: Sales order not found
+ *       500:
+ *         description: Server error
+ */
+router.patch("/:id/status", updateSaleStatus);
+
+/**
+ * @swagger
+ * /api/sales/{id}/recievedAmt:
+ *   patch:
+ *     summary: Update Sales Order Recieved Amount
+ *     description: Updates and Stores the partial amount receieved from the customer to calculate the balance due.
+ *     tags:
+ *       - Sales
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Unique identifier for the sales order
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recieved_amt:
+ *                 type: number 
+ *             required:
+ *               - recieved_amt
+ *     responses:
+ *       200:
+ *         description: Recieved Amount updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Amount updated
+ *       400:
+ *         description: Invalid amount or missing ID
+ *       404:
+ *         description: Sales order not found
+ *       500:
+ *         description: Server error
+ */
+router.patch("/:id/recievedAmt", saleAmountRecieved);
 
 export default router;

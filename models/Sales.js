@@ -39,6 +39,7 @@ const salesSchema = new mongoose.Schema(
       type: Date,
     },
     total_amount: { type: mongoose.Schema.Types.Decimal128, default: 0 },
+    recieved_amount : {type:mongoose.Schema.Types.Decimal128, default:0},
     created_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
   },
   {timestamps: true}
