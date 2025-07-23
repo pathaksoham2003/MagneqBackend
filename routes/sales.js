@@ -9,10 +9,23 @@ import {
   rejectSale,
   updateSaleStatus,
   saleAmountRecieved,
+  getTopStats,
 } from "../controllers/sales.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
+
+/**
+ * @swagger
+ * /api/sales/top-stats:
+ *   get:
+ *     summary: Get top statistics
+ *     tags: [Sales]
+ *     responses:
+ *       200:
+ *         description: Sales top statistics fetched
+ */
+router.get("/top-stats", getTopStats);
 
 /**
  * @swagger

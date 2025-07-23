@@ -3,6 +3,145 @@ import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
 import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
 import mongoose from 'mongoose'
+import { subMonths, startOfMonth, endOfMonth } from "date-fns";
+
+export const getTopStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const prevMonth = subMonths(now, 1);
+    const prevMonthStart = startOfMonth(prevMonth);
+    const prevMonthEnd = endOfMonth(prevMonth);
+
+    const [
+      currentSalesAgg,
+      prevSalesAgg,
+      currentOutstandingAgg,
+      prevOutstandingAgg,
+      currentOutstandingCountAgg,
+      prevOutstandingCountAgg,
+    ] = await Promise.all([
+      // Total Sales (current & previous month)
+      Sales.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
+      ]),
+      Sales.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
+      ]),
+
+      // Outstanding Amount (current & previous month)
+      Sales.aggregate([
+        {
+          $project: {
+            createdAt: 1,
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
+          },
+        },
+        {
+          $match: {
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            outstanding: { $gt: 0 },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$outstanding" } } },
+      ]),
+      Sales.aggregate([
+        {
+          $project: {
+            createdAt: 1,
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
+          },
+        },
+        {
+          $match: {
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            outstanding: { $gt: 0 },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$outstanding" } } },
+      ]),
+
+      // Due Payment Count (current & previous month)
+      Sales.aggregate([
+        {
+          $project: {
+            createdAt: 1,
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
+          },
+        },
+        {
+          $match: {
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            outstanding: { $ne: 0 },
+          },
+        },
+        { $count: "total" },
+      ]),
+      Sales.aggregate([
+        {
+          $project: {
+            createdAt: 1,
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
+          },
+        },
+        {
+          $match: {
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            outstanding: { $ne: 0 },
+          },
+        },
+        { $count: "total" },
+      ]),
+    ]);
+
+    // Safely extract values
+    const currentSales = parseFloat(currentSalesAgg[0]?.total || 0);
+    const prevSales = parseFloat(prevSalesAgg[0]?.total || 0);
+
+    const currentOutstanding = parseFloat(currentOutstandingAgg[0]?.total || 0);
+    const prevOutstanding = parseFloat(prevOutstandingAgg[0]?.total || 0);
+
+    const currentDueCount = currentOutstandingCountAgg[0]?.total || 0;
+    const prevDueCount = prevOutstandingCountAgg[0]?.total || 0;
+
+    const calcPercentage = (current, previous) => {
+      if (previous === 0 && current === 0) return "0%";
+      if (previous === 0) return "+∞%";
+      const change = ((current - previous) / previous) * 100;
+      const formatted = Math.abs(change).toFixed(2) + "%";
+      return change > 0 ? `+${formatted}` : change < 0 ? `-${formatted}` : "0%";
+    };
+
+    res.status(200).json({
+      total_sales: currentSales.toFixed(2),
+      total_sales_change: calcPercentage(currentSales, prevSales),
+
+      total_outstanding_amount: currentOutstanding.toFixed(2),
+      total_outstanding_change: calcPercentage(currentOutstanding, prevOutstanding),
+
+      due_payment_count: currentDueCount,
+      due_payment_change: calcPercentage(currentDueCount, prevDueCount),
+    });
+  } catch (err) {
+    console.error("getTopStats error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 export const createSale = async (req, res) => {
   try {

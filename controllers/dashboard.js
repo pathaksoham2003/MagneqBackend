@@ -29,14 +29,14 @@ export const getTopStats = async (req, res) => {
       Sales.aggregate([
         { $match: {
             createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            status: { $nin: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] }
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED","INPROCESS"] }
         } },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
       Sales.aggregate([
         { $match: {
-            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
-            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] }
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },  
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED","INPROCESS"] }
         } },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
