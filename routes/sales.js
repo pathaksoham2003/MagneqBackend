@@ -8,6 +8,7 @@ import {
   approveSale,
   rejectSale,
   updateSaleStatus,
+  saleAmountRecieved,
 } from "../controllers/sales.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 
@@ -352,5 +353,51 @@ router.delete("/:id", deleteSale);
  *         description: Server error
  */
 router.patch("/:id/status", updateSaleStatus);
+
+/**
+ * @swagger
+ * /api/sales/{id}/recievedAmt:
+ *   patch:
+ *     summary: Update Sales Order Recieved Amount
+ *     description: Updates and Stores the partial amount receieved from the customer to calculate the balance due.
+ *     tags:
+ *       - Sales
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         description: Unique identifier for the sales order
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recieved_amt:
+ *                 type: number 
+ *             required:
+ *               - recieved_amt
+ *     responses:
+ *       200:
+ *         description: Recieved Amount updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Amount updated
+ *       400:
+ *         description: Invalid amount or missing ID
+ *       404:
+ *         description: Sales order not found
+ *       500:
+ *         description: Server error
+ */
+router.patch("/:id/recievedAmt", saleAmountRecieved);
 
 export default router;

@@ -54,7 +54,7 @@ export const createSale = async (req, res) => {
     res.status(500).json({error: err.message});
   }
 };
-
+// export const
 export const approveSale = async (req, res) => {
   try {
     const {id} = req.params;
@@ -234,6 +234,8 @@ export const getSaleById = async (req, res) => {
       "Order Details": sale.finished_goods.map((item) => {
         return `${getFgModelNumber(item.finished_good)}/${item.quantity}`;
       }),
+      "Total Price":Number(sale.total_amount),
+      "Recieved Amount": Number(sale.recieved_amount),
       Status: sale.status,
     };
 
@@ -313,5 +315,35 @@ export const updateSaleStatus = async (req, res) => {
     res.status(200).json({message : "Status updated"});
   } catch (err){
     res.status(500).json({error : err.message});
+  }
+}
+
+export const saleAmountRecieved = async (req, res) =>{
+  try{
+
+    const {recieved_amt} = req.body;
+    if(!recieved_amt) return res.status(400).json({message:"Amount is required"});
+
+    const sale = await Sales.findById(req.params.id, {
+      total_amount: 1,
+      recieved_amount: 1
+    });
+
+    if(!sale) return res.status(404).json({message:"Sale not Found"})
+
+    const updatedAmount = Number(sale.recieved_amount) + Number(recieved_amt);
+
+
+    if (updatedAmount > Number(sale.total_amount)) {
+      return res.status(400).json({
+        message: "Received amount exceeds the total amount due"
+      });
+    }
+
+    sale.recieved_amount = updatedAmount;
+    await sale.save();
+    return res.status(200).json({ message: "Amount updated", sale });
+  }catch (err){
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
