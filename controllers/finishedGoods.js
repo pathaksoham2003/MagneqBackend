@@ -14,32 +14,52 @@ export const createFinishedGood = async (req, res) => {
       base_price = "0",
     } = req.body;
 
-    if (!model || !power || !ratio || !type) {
-      return res
-        .status(400)
-        .json({error: "Model, power, ratio, and type are required."});
+    if (!power || !ratio || !type || !model) {
+      return res.status(400).json({
+        error: "Power, ratio, and type are required to generate model number.",
+      });
+    }
+    const model_number = getFgModelNumber(req.body);
+
+    if (!model_number) {
+      return res.status(400).json({
+        error: "Failed to generate a model number from the input data.",
+      });
+    }
+    const allFinishedGoods = await FinishedGoods.find();
+    const isDuplicate = allFinishedGoods.some((fg) => {
+      const existingModelNumber = getFgModelNumber(fg);
+      if(existingModelNumber === model_number){
+        return ((fg.power?.toString?.()|| fg.power) === (power?.toString?.() || power))
+      }
+    });
+    if (isDuplicate) {
+      return res.status(409).json({
+        error: "A finished good with the same model number already exists.",
+        model_number,
+      });
     }
 
     const newFG = new FinishedGoods({
-      model: model.trim(),
+      model:model,
       power: mongoose.Types.Decimal128.fromString(power.toString()),
       ratio: ratio.toString().trim(),
       type: type.trim(),
       other_specification,
-      rate_per_unit: mongoose.Types.Decimal128.fromString(
-        rate_per_unit.toString()
-      ),
+      rate_per_unit: mongoose.Types.Decimal128.fromString(rate_per_unit.toString()),
       base_price: mongoose.Types.Decimal128.fromString(base_price.toString()),
       units: 0,
     });
 
     const savedFG = await newFG.save();
-    res.status(201).json(savedFG);
+
+    return res.status(201).json(savedFG);
   } catch (error) {
     console.error("Error creating finished good:", error);
-    res.status(400).json({error: error.message});
+    return res.status(500).json({ error: error.message });
   }
 };
+
 
 export const getAllFinishedGoods = async (req, res) => {
   try {
