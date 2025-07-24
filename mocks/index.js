@@ -10,7 +10,7 @@ import {insertFinishedGoods} from "./fg.js";
 import Production from "../models/Production.js";
 import Quality from "../models/Quality.js";
 import Sales from "../models/Sales.js";
-
+import Notification from "../models/Notification.js";
 const mockData = JSON.parse(
   fs.readFileSync(new URL("./rawMaterialA.json", import.meta.url), "utf-8")
 );
@@ -132,6 +132,63 @@ const seedUsers = async () => {
     console.error("❌ Error seeding users and permissions:", err.message);
   }
 };
+const seedNotifications = async () => {
+  const users = await User.find({});
+  if (!users.length) {
+    console.warn("⚠️ No users found. Skipping notification seeding.");
+    return;
+  }
+
+  const sender = users[0]._id; // use first user as sender
+
+  const notifications = [
+    {
+      type: "production",
+      by: sender,
+      status: "PENDING",
+      payload: {
+        message: "Production order #PX1001 initialized.",
+        orderId: "PX1001",
+        batch: "BATCH-001",
+      },
+      isRead: false,
+    },
+    {
+      type: "purchase",
+      by: sender,
+      status: "SENT",
+      payload: {
+        message: "Purchase request for gear shafts submitted.",
+        item: "Gear Shaft",
+        quantity: 300,
+      },
+      isRead: false,
+    },
+    {
+      type: "sales",
+      by: sender,
+      status: "ACKNOWLEDGED",
+      payload: {
+        message: "Invoice INV-2045 has been marked as paid.",
+        invoiceId: "INV-2045",
+      },
+      isRead: true,
+    },
+    {
+      type: "store",
+      by: sender,
+      status: "RESOLVED",
+      payload: {
+        message: "Inventory for SKU-GX22 has been restocked.",
+        location: "Store Room B",
+      },
+      isRead: true,
+    },
+  ];
+
+  await Notification.insertMany(notifications);
+  console.log(`✅ Seeded ${notifications.length} sample notifications`);
+};
 
 const flushAll = async () => {
   await RawMaterial.deleteMany({});
@@ -149,11 +206,13 @@ const runSeeder = async () => {
     const rawMaterials = await generateRawMaterials();
     await insertFinishedGoods();
     await seedUsers();
+    await seedNotifications(); // ← Add this line
   } catch (err) {
     console.error("❌ Seeder failed:", err.message);
   } finally {
     mongoose.connection.close();
   }
 };
+
 
 runSeeder();
