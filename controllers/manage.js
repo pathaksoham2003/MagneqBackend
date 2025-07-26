@@ -168,12 +168,10 @@ export const getUsersByRole = async (req, res) => {
 };
 
 export const getAllCustomers = async (req, res) => {
-  console.log("entered the getAllcustomer route");
   try {
     const { page , limit=10 , search = "" } = req.query;
     const pageNo = parseInt(page);
     const pageSize = 10;
-    console.log(req.query)
     
     const searchRegex = new RegExp(search, "i"); 
     const filter = search ? { name: searchRegex } : {};
@@ -191,14 +189,7 @@ export const getAllCustomers = async (req, res) => {
         customer.address || "",
         customer.gst_no || "",
       ],
-    }));
-    console.log({
-      header: ["Customer Name", "Address", "GST No"],
-      item: formatted,
-      page_no: pageNo,
-      total_pages: Math.ceil(totalItems / pageSize),
-      total_items: totalItems,
-    });
+    }));;
     res.status(200).json({
       header: ["Customer Name", "Address", "GST No"],
       item: formatted,
