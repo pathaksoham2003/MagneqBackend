@@ -170,20 +170,19 @@ export const getUsersByRole = async (req, res) => {
 export const getAllCustomers = async (req, res) => {
   console.log("entered the getAllcustomer route");
   try {
-    const { page , limit , search = "" } = req.query;
+    const { page , limit=10 , search = "" } = req.query;
     const pageNo = parseInt(page);
-    const pageSize = parseInt(limit);
+    const pageSize = 10;
     console.log(req.query)
-    // Build search filter
-    const searchRegex = new RegExp(search, "i"); // Case-insensitive
+    
+    const searchRegex = new RegExp(search, "i"); 
     const filter = search ? { name: searchRegex } : {};
 
     const totalItems = await Customer.countDocuments(filter);
 
     const customers = await Customer.find(filter)
       .skip((pageNo - 1) * pageSize)
-      .limit(pageSize)
-      .sort({ created_at: -1 });
+      .limit(pageSize);
 
     const formatted = customers.map((customer) => ({
       id: customer._id,

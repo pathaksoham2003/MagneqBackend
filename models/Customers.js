@@ -4,8 +4,8 @@ const customerSchema = new mongoose.Schema({
   name: String,
   address:String,
   gst_no:String,
-  created_at: Date,
-  updated_at: Date,
+},{
+  timestamps:true,
 });
 
 export default mongoose.model('Customer', customerSchema);
