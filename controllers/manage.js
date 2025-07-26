@@ -1,6 +1,7 @@
 import FinishedGoods from "../models/FinishedGoods.js";
 import RawMaterials from "../models/RawMaterials.js";
 import User from "../models/User.js";
+import Customer from "../models/Customers.js";
 import mongoose from "../utils/db.js";
 import { getFgModelNumber } from "../utils/helper.js";
 
@@ -117,7 +118,7 @@ export const getRawMaterialsByClass = async (req, res) => {
 export const getUsersByRole = async (req, res) => {
   try {
     const { role, page = 1, search = "" } = req.query;
-    const PAGE_SIZE = 10;
+    const PAGE_SIZE = 10 ;
     const pageNo = parseInt(page);
 
     let filter = {};
@@ -166,4 +167,48 @@ export const getUsersByRole = async (req, res) => {
   }
 };
 
+export const getAllCustomers = async (req, res) => {
+  console.log("entered the getAllcustomer route");
+  try {
+    const { page , limit , search = "" } = req.query;
+    const pageNo = parseInt(page);
+    const pageSize = parseInt(limit);
+    console.log(req.query)
+    // Build search filter
+    const searchRegex = new RegExp(search, "i"); // Case-insensitive
+    const filter = search ? { name: searchRegex } : {};
 
+    const totalItems = await Customer.countDocuments(filter);
+
+    const customers = await Customer.find(filter)
+      .skip((pageNo - 1) * pageSize)
+      .limit(pageSize)
+      .sort({ created_at: -1 });
+
+    const formatted = customers.map((customer) => ({
+      id: customer._id,
+      data: [
+        customer.name || "",
+        customer.address || "",
+        customer.gst_no || "",
+      ],
+    }));
+    console.log({
+      header: ["Customer Name", "Address", "GST No"],
+      item: formatted,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalItems / pageSize),
+      total_items: totalItems,
+    });
+    res.status(200).json({
+      header: ["Customer Name", "Address", "GST No"],
+      item: formatted,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalItems / pageSize),
+      total_items: totalItems,
+    });
+  } catch (err) {
+    console.error("Error fetching customers:", err);
+    res.status(500).json({ error: "Failed to fetch customers" });
+  }
+};

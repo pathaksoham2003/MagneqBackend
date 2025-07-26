@@ -5,6 +5,7 @@ import {
   getRawMaterialsByClass,
   getUsers,
   getUsersByRole,
+  getAllCustomers,
 } from "../controllers/manage.js";
 
 const router = express.Router();
@@ -124,6 +125,7 @@ router.get("/finished_good", getFinishedGoods);
  *         description: Failed to fetch raw materials
  */
 router.get("/raw_material/:class_type", getRawMaterialsByClass);
+router.get("/getAllCustomer", getAllCustomers);
 
 export default router;
 

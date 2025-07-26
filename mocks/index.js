@@ -15,12 +15,16 @@ const mockData = JSON.parse(
   fs.readFileSync(new URL("./rawMaterialA.json", import.meta.url), "utf-8")
 );
 
+import Customers from "../models/Customers.js";
+import companyList from "./customer.js";
 import XLSX from "xlsx";
+
+const companyList1 = companyList;
 
 const generateRawMaterialsB = async () => {
   const workbook = XLSX.readFile("./mocks/data/rawMaterialB.csv");
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+  const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
   const records = [];
 
@@ -190,6 +194,16 @@ const seedNotifications = async () => {
   console.log(`✅ Seeded ${notifications.length} sample notifications`);
 };
 
+const seedCustomers = async () => {
+  try {
+    await Customers.deleteMany({});
+    await Customers.insertMany(companyList);
+    console.log(`✅ Seeded ${companyList.length} customers successfully`);
+  } catch (err) {
+    console.error("❌ Error seeding customers:", err.message);
+  }
+};
+
 const flushAll = async () => {
   await RawMaterial.deleteMany({});
   await FinishedGoods.deleteMany({});
@@ -198,6 +212,7 @@ const flushAll = async () => {
   await Sales.deleteMany({});
   await RoutePermission.deleteMany({});
   await User.deleteMany({});
+  await Customers.deleteMany({});
 };
 
 const runSeeder = async () => {
@@ -207,12 +222,12 @@ const runSeeder = async () => {
     await insertFinishedGoods();
     await seedUsers();
     await seedNotifications(); // ← Add this line
+    await seedCustomers();
   } catch (err) {
     console.error("❌ Seeder failed:", err.message);
   } finally {
     mongoose.connection.close();
   }
 };
-
 
 runSeeder();
