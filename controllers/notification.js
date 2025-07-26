@@ -26,8 +26,13 @@ export const createNotification = async (req, res) => {
 // Get notifications based on user role
 export const getNotificationsByRole = async (req, res) => {
   try {
+    // const userRole = req.user.role;
     const userRole = req.user.role;
-    let filter = {};
+
+    // DEBUG: You can override user role here for testing
+    // const userRole = "SALES_EXEC";
+
+    let filter = { isRead: false }; // Only unread notifications
 
     if (userRole === "SALES_EXEC") {
       filter.type = "sales";
@@ -35,19 +40,23 @@ export const getNotificationsByRole = async (req, res) => {
       filter.type = "production";
     }
 
+    // Define time range: from yesterday 00:00 to today 23:59:59
     const now = new Date();
     const startToday = new Date(now.setHours(0, 0, 0, 0));
+
     const startTomorrow = new Date(startToday);
     startTomorrow.setDate(startTomorrow.getDate() + 1);
 
     const startYesterday = new Date(startToday);
     startYesterday.setDate(startYesterday.getDate() - 1);
 
-    // Get combined notifications
-    const notifications = await Notification.find({
-      ...filter,
-      createdAt: { $gte: startYesterday, $lt: startTomorrow }
-    }).sort({ createdAt: -1 });
+    // Extend filter to only include yesterday and today
+    filter.createdAt = {
+      $gte: startYesterday,
+      $lt: startTomorrow
+    };
+
+    const notifications = await Notification.find(filter).sort({ createdAt: -1 });
 
     return res.status(200).json({ notifications });
 
@@ -58,45 +67,27 @@ export const getNotificationsByRole = async (req, res) => {
 };
 
 // Mark a notification as read
-export const markAsRead = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const updated = await Notification.findByIdAndUpdate(
-      id,
-      { isRead: true },
-      { new: true }
-    );
-
-    if (!updated) {
-      return res.status(404).json({ message: "Notification not found" });
-    }
-
-    return res.status(200).json({ message: "Marked as read", notification: updated });
-  } catch (error) {
-    console.error("Mark As Read Error:", error);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-};
-
-// Clear notifications by role
-export const clearNotifications = async (req, res) => {
+export const markAllAsRead = async (req, res) => {
   try {
     const userRole = req.user.role;
-    let filter = {};
+    let filter = { isRead: false }; // Only mark unread notifications
 
+    // Apply role-based filtering
     if (userRole === "SALES_EXEC") {
       filter.type = "sales";
     } else if (userRole === "PRODUCTION_EXEC") {
       filter.type = "production";
     }
-    // All others delete all notifications
 
-    await Notification.deleteMany(filter);
+    const result = await Notification.updateMany(filter, { isRead: true });
 
-    return res.status(200).json({ message: "All notifications cleared" });
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: "No unread notifications found" });
+    }
+
+    return res.status(200).json({ message: "All notifications marked as read", result });
   } catch (error) {
-    console.error("Clear Notifications Error:", error);
+    console.error("Mark All As Read Error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 };
