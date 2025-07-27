@@ -260,6 +260,7 @@ const seedVendors = async () => {
 }; 
 
 const flushAll = async () => {
+  
   await RawMaterial.deleteMany({});
   await FinishedGoods.deleteMany({});
   await Production.deleteMany({});

@@ -27,7 +27,7 @@ export const register = async (req, res) => {
     const route = await RoutePermission.findOne({role});
 
     res.status(201).json({
-      message: "User registered successfully.",
+      message: "User registered successfully.", 
       route,
     });
   } catch (err) {

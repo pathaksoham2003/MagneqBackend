@@ -59,7 +59,7 @@ export const getPendingProductionOrders = async (req, res) => {
       return {
         id: production._id,
         data: [
-          `PRO-${production.order_id}`,
+          `PRO-${production.pro_id}(SO-${production.order_id})`,
           production.customer_name || "Unknown Vendor",
           production.createdAt,
           orderDetails,
@@ -73,7 +73,7 @@ export const getPendingProductionOrders = async (req, res) => {
 
     res.status(200).json({
       header: [
-        "Production Id",
+        "Production Id / Sales Id",
         "Customer Name",
         "Date of Creation",
         "Order Details",
