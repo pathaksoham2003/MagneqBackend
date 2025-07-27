@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import User from "../models/User.js";
+import Customer from "../models/Customers.js";
 import RoutePermission from "../models/RoutePermission.js"; 
 
 dotenv.config();
@@ -36,11 +37,15 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const {user_name, password} = req.body;
-
-    const user = await User.findOne({user_name});
-    if (!user) return res.status(401).json({error: "Invalid credentials"});
-
+    const {user_name, password, role} = req.body;
+    let user ;
+    if(role?.toUpperCase() === "STAFF"){
+      user = await User.findOne({user_name});
+      if (!user) return res.status(401).json({error: "Invalid credentials"});
+    } else {
+      user = await Customer.findOne({user_name});
+      if (!user) return res.status(401).json({error:"Invalid credentials"});
+    }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({error: "Invalid credentials"});
 

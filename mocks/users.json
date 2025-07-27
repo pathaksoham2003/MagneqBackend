@@ -1,29 +1,5 @@
 [
   {
-    "name": "Alice Customer",
-    "role": "CUSTOMER",
-    "password": "customer123",
-    "user_name": "alice",
-    "permissions": {
-      "sidebar": [
-        "create_order",
-        "track_order",
-        "quality"
-      ],
-      "support": [
-        "chat",
-        "email"
-      ],
-      "allowed_routes": [
-        "/create_order",
-        "/track_order",
-        "/quality",
-        "/chat",
-        "/email"
-      ]
-    }
-  },
-  {
     "name": "Bob Sales",
     "role": "SALES_EXEC",
     "password": "sales123",

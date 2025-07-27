@@ -52,10 +52,10 @@ export const getAllPurchases = async (req, res) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
+    const filter = { status: { $ne: "COMPLETE" } };
+    const totalCount = await Purchase.countDocuments(filter);
 
-    const totalCount = await Purchase.countDocuments();
-
-    const purchases = await Purchase.find()
+    const purchases = await Purchase.find(filter)
       .sort({created_at: -1})
       .skip((pageNo - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)

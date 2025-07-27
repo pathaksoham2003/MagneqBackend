@@ -11,6 +11,8 @@ import Production from "../models/Production.js";
 import Quality from "../models/Quality.js";
 import Sales from "../models/Sales.js";
 import Notification from "../models/Notification.js";
+import Vendor from "../models/Vendors.js";
+
 const mockData = JSON.parse(
   fs.readFileSync(new URL("./rawMaterialA.json", import.meta.url), "utf-8")
 );
@@ -18,8 +20,6 @@ const mockData = JSON.parse(
 import Customers from "../models/Customers.js";
 import companyList from "./customer.js";
 import XLSX from "xlsx";
-
-const companyList1 = companyList;
 
 const generateRawMaterialsB = async () => {
   const workbook = XLSX.readFile("./mocks/data/rawMaterialB.csv");
@@ -197,12 +197,67 @@ const seedNotifications = async () => {
 const seedCustomers = async () => {
   try {
     await Customers.deleteMany({});
-    await Customers.insertMany(companyList);
-    console.log(`✅ Seeded ${companyList.length} customers successfully`);
+
+    const transformed = await Promise.all(
+      companyList.map(async (company) => {
+        const user_name = company.user_name || company.name.toLowerCase().replace(/\s+/g, "_");
+        const password = company.password || "customer123";
+
+        return {
+          name: company.name,
+          address: company.address,
+          gst_no: company.gst_no,
+          user_name,
+          phone:company.phone,
+          password: await bcrypt.hash(password, 10),
+          role: "CUSTOMER",
+        };
+      })
+    );
+
+    await Customers.insertMany(transformed);
+    console.log(`✅ Seeded ${transformed.length} customers`);
+
+    // Ensure route permissions for CUSTOMER role exist
+    const existingPermission = await RoutePermission.findOne({ role: "CUSTOMER" });
+
+    if (!existingPermission) {
+      await RoutePermission.create({
+        role: "CUSTOMER",
+        sidebar: ["create_order", "track_order", "quality"],
+        support: ["chat", "email"],
+        allowed_routes: [
+          "/create_order",
+          "/track_order",
+          "/quality",
+          "/chat",
+          "/email"
+        ],
+      });
+
+      console.log("✅ Created route permission for CUSTOMER role");
+    } else {
+      console.log("ℹ️ Route permission for CUSTOMER role already exists");
+    }
+
   } catch (err) {
     console.error("❌ Error seeding customers:", err.message);
   }
 };
+const seedVendors = async () => {
+  const mockVendors = [
+  { name: "Apex Steel Supplies", phone: 9876543210 },
+  { name: "MechCraft Components", phone: 9123456789 },
+  { name: "Orbit Precision Tools", phone: 9988776655 }
+];
+  try {
+    await Vendor.deleteMany({});
+    await Vendor.insertMany(mockVendors);
+    console.log(`✅ Seeded ${mockVendors.length} vendors`);
+  } catch (err) {
+    console.error("❌ Error seeding vendors:", err.message);
+  }
+}; 
 
 const flushAll = async () => {
   await RawMaterial.deleteMany({});
@@ -213,6 +268,7 @@ const flushAll = async () => {
   await RoutePermission.deleteMany({});
   await User.deleteMany({});
   await Customers.deleteMany({});
+  await Vendor.deleteMany({});
 };
 
 const runSeeder = async () => {
@@ -223,6 +279,7 @@ const runSeeder = async () => {
     await seedUsers();
     await seedNotifications(); // ← Add this line
     await seedCustomers();
+    await seedVendors();
   } catch (err) {
     console.error("❌ Seeder failed:", err.message);
   } finally {

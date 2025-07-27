@@ -6,6 +6,7 @@ import {
   getUsers,
   getUsersByRole,
   getAllCustomers,
+  getAllVendors,
 } from "../controllers/manage.js";
 
 const router = express.Router();
@@ -126,6 +127,7 @@ router.get("/finished_good", getFinishedGoods);
  */
 router.get("/raw_material/:class_type", getRawMaterialsByClass);
 router.get("/getAllCustomer", getAllCustomers);
+router.get("/getAllVendor", getAllVendors);
 
 export default router;
 

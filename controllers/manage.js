@@ -2,6 +2,7 @@ import FinishedGoods from "../models/FinishedGoods.js";
 import RawMaterials from "../models/RawMaterials.js";
 import User from "../models/User.js";
 import Customer from "../models/Customers.js";
+import Vendor from "../models/Vendors.js"
 import mongoose from "../utils/db.js";
 import { getFgModelNumber } from "../utils/helper.js";
 
@@ -200,5 +201,40 @@ export const getAllCustomers = async (req, res) => {
   } catch (err) {
     console.error("Error fetching customers:", err);
     res.status(500).json({ error: "Failed to fetch customers" });
+  }
+};
+
+export const getAllVendors = async (req, res) => {
+  try {
+    const { page , limit=10 , search = "" } = req.query;
+    const pageNo = parseInt(page);
+    const pageSize = 10;
+    
+    const searchRegex = new RegExp(search, "i"); 
+    const filter = search ? { name: searchRegex } : {};
+
+    const totalItems = await Vendor.countDocuments(filter);
+
+    const vendors = await Vendor.find(filter)
+      .skip((pageNo - 1) * pageSize)
+      .limit(pageSize);
+
+    const formatted = vendors.map((vendor) => ({
+      id: vendor._id,
+      data: [
+        vendor.name || "",
+        vendor.phone || "",
+      ],
+    }));;
+    res.status(200).json({
+      header: ["Vendor Name", "Phone Number"],
+      item: formatted,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalItems / pageSize),
+      total_items: totalItems,
+    });
+  } catch (err) {
+    console.error("Error fetching Vendors:", err);
+    res.status(500).json({ error: "Failed to fetch vendors" });
   }
 };

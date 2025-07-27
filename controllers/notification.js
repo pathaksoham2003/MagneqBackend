@@ -26,13 +26,9 @@ export const createNotification = async (req, res) => {
 // Get notifications based on user role
 export const getNotificationsByRole = async (req, res) => {
   try {
-    // const userRole = req.user.role;
     const userRole = req.user.role;
 
-    // DEBUG: You can override user role here for testing
-    // const userRole = "SALES_EXEC";
-
-    let filter = { isRead: false }; // Only unread notifications
+    let filter = { isRead: false }; 
 
     if (userRole === "SALES_EXEC") {
       filter.type = "sales";
@@ -40,7 +36,6 @@ export const getNotificationsByRole = async (req, res) => {
       filter.type = "production";
     }
 
-    // Define time range: from yesterday 00:00 to today 23:59:59
     const now = new Date();
     const startToday = new Date(now.setHours(0, 0, 0, 0));
 
@@ -50,7 +45,6 @@ export const getNotificationsByRole = async (req, res) => {
     const startYesterday = new Date(startToday);
     startYesterday.setDate(startYesterday.getDate() - 1);
 
-    // Extend filter to only include yesterday and today
     filter.createdAt = {
       $gte: startYesterday,
       $lt: startTomorrow
@@ -66,13 +60,11 @@ export const getNotificationsByRole = async (req, res) => {
   }
 };
 
-// Mark a notification as read
 export const markAllAsRead = async (req, res) => {
   try {
     const userRole = req.user.role;
-    let filter = { isRead: false }; // Only mark unread notifications
+    let filter = { isRead: false }; 
 
-    // Apply role-based filtering
     if (userRole === "SALES_EXEC") {
       filter.type = "sales";
     } else if (userRole === "PRODUCTION_EXEC") {
