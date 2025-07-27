@@ -55,14 +55,17 @@ export const login = async (req, res) => {
       role: user.role,
       user_name: user.user_name,
     };
-
+    const info ={
+      name:user.name,
+      user_name:user.user_name
+    }
     const token = jwt.sign(payload, JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRY,
     });
 
     const route = await RoutePermission.findOne({role: user.role});
 
-    res.json({token, route});
+    res.json({token, route,info});
   } catch (err) {
     console.log(err)
     res.status(500).json({error: "Login failed", details: err.message});
