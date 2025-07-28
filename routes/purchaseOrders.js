@@ -5,7 +5,8 @@ import {
   getAllPurchases,
   getPurchaseOrderItems,
   updatePurchaseOrder,
-  getPurchaseDetails
+  getPurchaseDetails,
+  getPendingPurchases
 } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
@@ -166,6 +167,8 @@ router.post('/', createPurchaseOrder);
  */
 
 router.get('/', getAllPurchases);
+
+router.get('/pending', getPendingPurchases);
 
 /**
  * @swagger

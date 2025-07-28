@@ -110,6 +110,68 @@ export const getAllPurchases = async (req, res) => {
   }
 };
 
+export const getPendingPurchases = async (req, res) => {
+  try {
+    const pageNo = parseInt(req.query.page_no) || 1;
+    const PAGE_SIZE = 10;
+    const filter = { status: { $ne: "COMPLETE" } };
+    const totalCount = await Purchase.countDocuments(filter);
+
+    const purchases = await Purchase.find(filter)
+      .sort({created_at: -1})
+      .skip((pageNo - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE)
+      .populate({
+        path: "items.raw_material_id",
+        select: "class_type",
+      });
+
+    const items = purchases.map((purchase) => {
+      const classTotals = {A: 0, B: 0, C: 0};
+
+      for (const item of purchase.items) {
+        const mat = item.raw_material_id;
+        const classType = mat?.class_type;
+
+        if (classType && classTotals.hasOwnProperty(classType)) {
+          classTotals[classType] += item.quantity;
+        }
+      }
+
+      const orderDetails = Object.entries(classTotals)
+        .filter(([_, qty]) => qty > 0)
+        .map(([cls, qty]) => `${cls}/${qty}`);
+
+      return {
+        id: purchase._id,
+        data: [
+          `PRO-${purchase.po_number}`,
+          purchase.vendor_name,
+          purchase.purchasing_date,
+          orderDetails,
+          purchase.status,
+        ],
+      };
+    });
+
+    res.status(200).json({
+      header: [
+        "Production Id",
+        "Vendor Name",
+        "Date of purchase",
+        "Order Details",
+        "Status",
+      ],
+      item: items,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalCount / PAGE_SIZE),
+      total_items: totalCount,
+    });
+  } catch (err) {
+    res.status(500).json({error: err.message});
+  }
+};
+
 export const getPurchaseOrderItems = async (req, res) => {
   try {
     const {po_number} = req.params;
