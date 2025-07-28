@@ -52,7 +52,7 @@ export const getAllPurchases = async (req, res) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
-    const filter = { status: { $ne: "COMPLETE" } };
+    const filter = {  };
     const totalCount = await Purchase.countDocuments(filter);
 
     const purchases = await Purchase.find(filter)
