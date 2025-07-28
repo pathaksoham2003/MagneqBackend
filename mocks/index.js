@@ -12,6 +12,7 @@ import Quality from "../models/Quality.js";
 import Sales from "../models/Sales.js";
 import Notification from "../models/Notification.js";
 import Vendor from "../models/Vendors.js";
+import Purchase from "../models/Purchase.js";
 
 const mockData = JSON.parse(
   fs.readFileSync(new URL("./rawMaterialA.json", import.meta.url), "utf-8")
@@ -260,8 +261,9 @@ const seedVendors = async () => {
 }; 
 
 const flushAll = async () => {
-  
+  await Notification.deleteMany({});
   await RawMaterial.deleteMany({});
+  await Purchase.deleteMany({});
   await FinishedGoods.deleteMany({});
   await Production.deleteMany({});
   await Quality.deleteMany({});
@@ -278,7 +280,7 @@ const runSeeder = async () => {
     const rawMaterials = await generateRawMaterials();
     await insertFinishedGoods();
     await seedUsers();
-    await seedNotifications(); // ← Add this line
+    await seedNotifications(); 
     await seedCustomers();
     await seedVendors();
   } catch (err) {
