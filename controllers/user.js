@@ -57,7 +57,8 @@ export const login = async (req, res) => {
     };
     const info ={
       name:user.name,
-      user_name:user.user_name
+      user_name:user.user_name,
+      role: user.role,
     }
     const token = jwt.sign(payload, JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRY,
