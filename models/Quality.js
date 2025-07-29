@@ -25,7 +25,7 @@ const qualitySchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    created_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+    created_by: {type: String},
   },
   {
     timestamps: {

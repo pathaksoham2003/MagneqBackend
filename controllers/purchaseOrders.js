@@ -292,7 +292,6 @@ export const getPurchaseDetails = async (req, res) => {
       model: RawMaterials,
       select: "name type class_type",
     });
-    // console.log(purchase)
     if (!purchase) {
       return res.status(404).json({message: "Purchase Not Found"});
     }

@@ -6,10 +6,7 @@ const customerSchema = new mongoose.Schema({
   gst_no:String,
   password: String,
   user_name: String,
-  phone: {
-    type: String,
-    match: /^[0-9]{10}$/,
-  },
+  phone: String,
   role: { type: String, default: 'CUSTOMER' },
 },{
   timestamps:true,

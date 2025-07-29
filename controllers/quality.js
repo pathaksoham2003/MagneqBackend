@@ -32,7 +32,7 @@ export const createQuality = async (req, res) => {
         issue: description,
         action_taken: false,
         issue_type: issue_type,
-        created_by: req.user.id,
+        created_by: `${req.user.name}(${req.user.user_name})`,
       });
 
       return res.status(201).json(issueDoc);
@@ -41,7 +41,7 @@ export const createQuality = async (req, res) => {
     const issueDoc = await Quality.create({
       issue_type: issue_type,
       issue: description,
-      created_by: req.user.id,
+      created_by: `${req.user.name}(${req.user.user_name})`,
       action_taken: false,
     });
 
@@ -56,7 +56,7 @@ export const createQuality = async (req, res) => {
 
 export const getAllQualities = async (req, res) => {
   try {
-    const {page = 1, limit = 10, search = "", issue_type = ""} = req.query;
+    const { page = 1, limit = 10, search = "", issue_type = "" } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const query = {};
@@ -66,38 +66,37 @@ export const getAllQualities = async (req, res) => {
     }
 
     if (req.user?.role === "CUSTOMER") {
-      query.created_by = req.user.id;
+      query.created_by = `${req.user.name}(${req.user.user_name})`;
     }
 
     if (search) {
       query.$or = [
-        {vendor: {$regex: search, $options: "i"}},
-        {"items.order_number": {$regex: search, $options: "i"}},
+        { vendor: { $regex: search, $options: "i" } },
+        { "items.order_number": { $regex: search, $options: "i" } },
       ];
     }
 
     const totalItems = await Quality.countDocuments(query);
     const qualityIssues = await Quality.find(query)
       .populate("finished_good")
-      .populate("created_by")
-      .sort({createdAt: -1})
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
 
     const response = {
       header: ["Ticket ID", "Created By", "Date", "Issue", "Action Taken"],
-      item: qualityIssues.map((issue) => {
-        return {
-          id: issue._id,
-          data: [
-            issue._id.toString().slice(-4).toUpperCase(),
-            issue.created_by.name || "N/A",
-            new Date(issue.created_at).toLocaleDateString("en-GB"),
-            issue.issue_type,
-            issue.action_taken ? "YES" : "NO",
-          ],
-        };
-      }),
+      item: qualityIssues.map((issue) => ({
+        id: issue._id,
+        data: [
+          issue._id.toString().slice(-4).toUpperCase(),
+          issue.created_by || "N/A",
+          new Date(issue.created_at).toLocaleDateString("en-GB"),
+          issue.issue_type,
+          issue.action_taken ? "YES" : "NO",
+        ],
+        issue: issue.issue, 
+        issue_type: issue.issue_type, 
+      })),
       page_no: parseInt(page),
       total_pages: Math.ceil(totalItems / limit),
       total_items: totalItems,
@@ -106,7 +105,7 @@ export const getAllQualities = async (req, res) => {
     res.json(response);
   } catch (err) {
     console.error("Error fetching quality issues:", err);
-    res.status(500).json({error: "Failed to fetch quality issues"});
+    res.status(500).json({ error: "Failed to fetch quality issues" });
   }
 };
 
