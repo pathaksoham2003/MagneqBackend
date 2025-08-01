@@ -10,12 +10,11 @@ export const createQuality = async (req, res) => {
 
       for (const item of items) {
         const {model, type, ratio, power} = item;
-
         const finishedGood = await FinishedGoods.findOne({
-          model,
-          type,
-          ratio,
-          power,
+          model: model,
+          type: type,
+          ratio: ratio,
+          power: power.toString(),
         });
 
         if (!finishedGood) {
@@ -56,7 +55,7 @@ export const createQuality = async (req, res) => {
 
 export const getAllQualities = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", issue_type = "" } = req.query;
+    const {page = 1, limit = 10, search = "", issue_type = ""} = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const query = {};
@@ -71,15 +70,15 @@ export const getAllQualities = async (req, res) => {
 
     if (search) {
       query.$or = [
-        { vendor: { $regex: search, $options: "i" } },
-        { "items.order_number": { $regex: search, $options: "i" } },
+        {vendor: {$regex: search, $options: "i"}},
+        {"items.order_number": {$regex: search, $options: "i"}},
       ];
     }
 
     const totalItems = await Quality.countDocuments(query);
     const qualityIssues = await Quality.find(query)
       .populate("finished_good")
-      .sort({ createdAt: -1 })
+      .sort({createdAt: -1})
       .skip(skip)
       .limit(parseInt(limit));
 
@@ -94,8 +93,8 @@ export const getAllQualities = async (req, res) => {
           issue.issue_type,
           issue.action_taken ? "YES" : "NO",
         ],
-        issue: issue.issue, 
-        issue_type: issue.issue_type, 
+        issue: issue.issue,
+        issue_type: issue.issue_type,
       })),
       page_no: parseInt(page),
       total_pages: Math.ceil(totalItems / limit),
@@ -105,7 +104,7 @@ export const getAllQualities = async (req, res) => {
     res.json(response);
   } catch (err) {
     console.error("Error fetching quality issues:", err);
-    res.status(500).json({ error: "Failed to fetch quality issues" });
+    res.status(500).json({error: "Failed to fetch quality issues"});
   }
 };
 
@@ -113,7 +112,9 @@ export const getSpecificQualityIssue = async (req, res) => {
   try {
     const {id} = req.params;
 
-    const qualityIssue = await Quality.findById(id).populate("finished_good").populate("created_by");
+    const qualityIssue = await Quality.findById(id)
+      .populate("finished_good")
+      .populate("created_by");
 
     if (!qualityIssue) {
       return res.status(404).json({error: "Quality issue not found"});

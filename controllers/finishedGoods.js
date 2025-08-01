@@ -195,6 +195,7 @@ export const getModelConfig = async (req, res) => {
             model: "$model",
             power: "$power",
             ratio: "$ratio",
+            type: "$type"
           },
         },
       },
@@ -206,6 +207,7 @@ export const getModelConfig = async (req, res) => {
             $push: {
               power: "$_id.power",
               ratio: "$_id.ratio",
+              type: "$_id.type",
             },
           },
         },
