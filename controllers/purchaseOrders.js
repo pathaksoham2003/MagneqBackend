@@ -1,6 +1,8 @@
 import {PO_ITEM_STATUS, PO_STATUS} from "../enums/purchase.js";
 import Purchase from "../models/Purchase.js";
 import RawMaterials from "../models/RawMaterials.js";
+import { subMonths, startOfMonth, endOfMonth } from "date-fns";
+
 
 export const createPurchaseOrder = async (req, res) => {
   try {
@@ -320,5 +322,108 @@ export const getPurchaseDetails = async (req, res) => {
   } catch (err) {
     console.error("Error fetching purchase:", err);
     return res.status(500).json({error: err.message});
+  }
+};
+
+export const getPurchaseStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const prevMonth = subMonths(now, 1);
+    const prevMonthStart = startOfMonth(prevMonth);
+    const prevMonthEnd = endOfMonth(prevMonth);
+
+    const [
+      currentPurchaseAgg,
+      prevPurchaseAgg,
+      pendingOrdersCount,
+      prevPendingOrdersCount,
+      totalPendingPayableAgg,
+      prevTotalPendingPayableAgg
+    ] = await Promise.all([
+
+      // Current month purchase total
+      Purchase.aggregate([
+        { $match: { created_at: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
+        { $unwind: "$items" },
+        { $match: { "items.status": PO_ITEM_STATUS.RECIEVED } },
+        { $group: { _id: null, total: { $sum: { $toDouble: "$items.item_total_price" } } } },
+      ]),
+
+      // Previous month purchase total
+      Purchase.aggregate([
+        { $match: { created_at: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
+        { $unwind: "$items" },
+        { $match: { "items.status": PO_ITEM_STATUS.RECIEVED } },
+        { $group: { _id: null, total: { $sum: { $toDouble: "$items.item_total_price" } } } },
+      ]),
+
+      // Current month pending orders
+      Purchase.countDocuments({
+        created_at: { $gte: currentMonthStart, $lte: currentMonthEnd },
+        status: PO_STATUS.PENDING
+      }),
+
+      // Previous month pending orders
+      Purchase.countDocuments({
+        created_at: { $gte: prevMonthStart, $lte: prevMonthEnd },
+        status: PO_STATUS.PENDING
+      }),
+
+      // Current month pending payable total
+      Purchase.aggregate([
+        {
+          $match: {
+            created_at: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            status: PO_STATUS.PENDING
+          }
+        },
+        { $group: { _id: null, total: { $sum: { $toDouble: "$total_price" } } } },
+      ]),
+
+      // Previous month pending payable total
+      Purchase.aggregate([
+        {
+          $match: {
+            created_at: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            status: PO_STATUS.PENDING
+          }
+        },
+        { $group: { _id: null, total: { $sum: { $toDouble: "$total_price" } } } },
+      ]),
+    ]);
+
+    const currentPurchase = parseFloat(currentPurchaseAgg[0]?.total || 0);
+    const prevPurchase = parseFloat(prevPurchaseAgg[0]?.total || 0);
+
+    const currentPendingOrders = pendingOrdersCount;
+    const prevPendingOrders = prevPendingOrdersCount;
+
+    const currentPayable = parseFloat(totalPendingPayableAgg[0]?.total || 0);
+    const prevPayable = parseFloat(prevTotalPendingPayableAgg[0]?.total || 0);
+
+    const calcPercentage = (current, previous) => {
+      if (previous === 0 && current === 0) return "0%";
+      if (previous === 0) return "+∞%";
+      const change = ((current - previous) / previous) * 100;
+      const formatted = Math.abs(change).toFixed(2) + "%";
+      return change > 0 ? `+${formatted}` : change < 0 ? `-${formatted}` : "0%";
+    };
+
+    res.status(200).json({
+      total_purchases: currentPurchase.toFixed(2),
+      total_purchases_change: calcPercentage(currentPurchase, prevPurchase),
+
+      pending_orders: currentPendingOrders,
+      pending_orders_change: calcPercentage(currentPendingOrders, prevPendingOrders),
+
+      total_payable_amount: currentPayable.toFixed(2),
+      total_payable_amount_change: calcPercentage(currentPayable, prevPayable),
+    });
+  } catch (err) {
+    console.error("Error in getPurchaseStats:", err.message);
+    res.status(500).json({ error: err.message });
   }
 };
