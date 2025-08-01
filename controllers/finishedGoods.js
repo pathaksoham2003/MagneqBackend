@@ -19,6 +19,7 @@ export const createFinishedGood = async (req, res) => {
         error: "Power, ratio, and type are required to generate model number.",
       });
     }
+
     const model_number = getFgModelNumber(req.body);
 
     if (!model_number) {
@@ -26,13 +27,16 @@ export const createFinishedGood = async (req, res) => {
         error: "Failed to generate a model number from the input data.",
       });
     }
+
     const allFinishedGoods = await FinishedGoods.find();
     const isDuplicate = allFinishedGoods.some((fg) => {
       const existingModelNumber = getFgModelNumber(fg);
-      if(existingModelNumber === model_number){
-        return ((fg.power?.toString?.()|| fg.power) === (power?.toString?.() || power))
-      }
+      return (
+        existingModelNumber === model_number &&
+        (fg.power || "").trim() === power.trim()
+      );
     });
+
     if (isDuplicate) {
       return res.status(409).json({
         error: "A finished good with the same model number already exists.",
@@ -41,8 +45,8 @@ export const createFinishedGood = async (req, res) => {
     }
 
     const newFG = new FinishedGoods({
-      model:model,
-      power: mongoose.Types.Decimal128.fromString(power.toString()),
+      model: model.trim(),
+      power: power.trim(), // now just string
       ratio: ratio.toString().trim(),
       type: type.trim(),
       other_specification,
@@ -79,10 +83,10 @@ export const getFinishedGoodById = async (req, res) => {
     );
 
     if (!fg) {
-      return res.status(404).json({message: "Finished good not found"});
+      return res.status(404).json({ message: "Finished good not found" });
     }
 
-    const {model, type, ratio, power, other_specification = {}} = fg;
+    const { model, type, ratio, power, other_specification = {} } = fg;
 
     // Generate FG Model Number
     const model_number = getFgModelNumber(fg);
@@ -118,7 +122,7 @@ export const getFinishedGoodById = async (req, res) => {
       model,
       type,
       ratio,
-      power: power?.toString() || "",
+      power: power || "", // No `.toString()` needed
       model_number,
       motor_shaft_diameter: other_specification.motor_shaft_diameter || "",
       motor_frame_size: other_specification.motor_frame_size || "",
@@ -132,40 +136,43 @@ export const getFinishedGoodById = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getFinishedGoodById:", error);
-    res.status(500).json({error: error.message});
+    res.status(500).json({ error: error.message });
   }
 };
 
+
 export const updateFinishedGood = async (req, res) => {
   try {
-    const {id} = req.params;
-    const {classA = [], classB = [], classC = []} = req.body;
+    const { id } = req.params;
+    const { classA = [], classB = [], classC = [] } = req.body;
 
-    // Combine class A, B, C raw materials into one array
+    // Combine and sanitize raw materials
     const allRawMaterials = [...classA, ...classB, ...classC];
 
-    // Map to match schema format
-    const raw_materials = allRawMaterials.map((item) => ({
-      raw_material_id: item.raw_material,
-      quantity: item.quantity,
-    }));
+    const raw_materials = allRawMaterials
+      .filter(item => item.raw_material) // ignore invalid items
+      .map(item => ({
+        raw_material_id: item.raw_material,
+        quantity: Number(item.quantity) || 0, // ensure quantity is a number
+      }));
 
     const updatedFG = await FinishedGoods.findByIdAndUpdate(
       id,
-      {raw_materials},
-      {new: true}
+      { raw_materials },
+      { new: true }
     ).populate("raw_materials.raw_material_id");
 
     if (!updatedFG) {
-      return res.status(404).json({message: "Finished good not found"});
+      return res.status(404).json({ message: "Finished good not found" });
     }
 
     res.status(200).json(updatedFG);
   } catch (error) {
-    console.error("Error updating raw materials:", error);
-    res.status(400).json({error: error.message});
+    console.error("Error updating finished good:", error);
+    res.status(400).json({ error: error.message });
   }
 };
+
 
 export const deleteFinishedGood = async (req, res) => {
   try {
@@ -186,7 +193,7 @@ export const getModelConfig = async (req, res) => {
         $group: {
           _id: {
             model: "$model",
-            power: {$toString: "$power"},
+            power: "$power",
             ratio: "$ratio",
           },
         },
@@ -209,7 +216,7 @@ export const getModelConfig = async (req, res) => {
     for (const fg of finishedGoods) {
       const model = fg._id;
       config[model] = {
-        powers: fg.powers.map(Number).sort((a, b) => a - b),
+        powers: fg.powers.sort(),
         ratios: {},
       };
 

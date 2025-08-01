@@ -110,13 +110,13 @@ export const createUser = async (req, res) => {
 
 export const getFinishedGoods = async (req, res) => {
   try {
-    const {model, type, ratio, power, page = 1, limit = 20} = req.query;
+    const { model, type, ratio, power, page = 1, limit = 20 } = req.query;
 
     const filter = {};
     if (model) filter.model = model;
     if (type) filter.type = type;
     if (ratio) filter.ratio = ratio;
-    if (power) filter.power = mongoose.Types.Decimal128.fromString(power);
+    if (power) filter.power = power.trim(); // now a string, no Decimal128
 
     const data = await FinishedGoods.find(filter).lean();
 
@@ -127,19 +127,17 @@ export const getFinishedGoods = async (req, res) => {
 
     const fields = ["model_number", "model", "power", "ratio", "type"];
 
-    res
-      .status(200)
-      .json(
-        formatPaginatedResponse(
-          enhancedData,
-          fields,
-          Number(page),
-          Number(limit)
-        )
-      );
+    res.status(200).json(
+      formatPaginatedResponse(
+        enhancedData,
+        fields,
+        Number(page),
+        Number(limit)
+      )
+    );
   } catch (e) {
     console.error("Error fetching finished goods:", e);
-    res.status(400).json(e);
+    res.status(400).json({ error: e.message });
   }
 };
 

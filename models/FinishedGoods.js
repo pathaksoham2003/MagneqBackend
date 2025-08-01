@@ -4,10 +4,7 @@ const finishedGoodsSchema = new mongoose.Schema({
   model: String,
   type: String,
   ratio: String,
-  power: {
-    type: mongoose.Schema.Types.Decimal128,
-    default: null, 
-  },
+  power: String,
   other_specification: {
     type: mongoose.Schema.Types.Mixed,
     default: null,
