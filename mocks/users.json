@@ -91,6 +91,33 @@
     }
   },
   {
+    "name": "Purchase",
+    "role": "PURCHASE",
+    "password": "purchase123",
+    "user_name": "purchase",
+    "permissions": {
+      "sidebar": [
+        "store",
+        "purchase",
+        "quality"
+      ],
+      "support": [
+        "chat",
+        "email"
+      ],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
     "name": "Production Executive",
     "role": "PRODUCTION_EXEC",
     "password": "production123",
