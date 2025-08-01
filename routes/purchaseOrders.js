@@ -6,7 +6,8 @@ import {
   getPurchaseOrderItems,
   updatePurchaseOrder,
   getPurchaseDetails,
-  getPendingPurchases
+  getPendingPurchases,
+  getPurchaseStats
 } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
@@ -170,6 +171,7 @@ router.get('/', getAllPurchases);
 
 router.get('/pending', getPendingPurchases);
 
+router.get("/stats", getPurchaseStats);
 /**
  * @swagger
  * /api/purchase_order/{id}:
