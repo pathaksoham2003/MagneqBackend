@@ -72,3 +72,42 @@ export const login = async (req, res) => {
     res.status(500).json({error: "Login failed", details: err.message});
   }
 };
+
+export const updatePassword = async (req, res) => {
+  const { user_name, current_password, new_password, role } = req.body;
+
+  if (!user_name || !current_password || !new_password || !role) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    let userModel;
+
+    // Select model based on role
+    if(role.toUpperCase() == 'CUSTOMER'){
+      userModel = Customer;
+    }else {
+      userModel = User
+    }
+
+    const user = await userModel.findOne({ user_name });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(current_password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({ success: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating password:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};

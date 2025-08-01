@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login } from '../controllers/user.js';
+import { register, login, updatePassword } from '../controllers/user.js';
 
 const router = express.Router();
 
@@ -54,5 +54,7 @@ router.post('/register', register);
  *         description: JWT token returned
  */
 router.post('/login', login);
+
+router.put('/profile_update',updatePassword);
 
 export default router;
