@@ -1,9 +1,9 @@
 [
   {
     "name": "Bob Sales",
-    "role": "SALES_EXEC",
+    "role": "SALES",
     "password": "sales123",
-    "user_name": "bob",
+    "user_name": "sales",
     "permissions": {
       "sidebar": [
         "create_order",
@@ -11,10 +11,7 @@
         "ledger",
         "quality"
       ],
-      "support": [
-        "chat",
-        "email"
-      ],
+      "support": [],
       "allowed_routes": [
         "/create_order",
         "/track_order",
@@ -27,7 +24,7 @@
   },
   {
     "name": "Developer David",
-    "role": "DEVELOPMER",
+    "role": "DEVELOPER",
     "password": "developer123",
     "user_name": "developer",
     "permissions": {
@@ -64,7 +61,7 @@
     "name": "Charlie Admin",
     "role": "ADMIN",
     "password": "admin123",
-    "user_name": "charlie",
+    "user_name": "admin",
     "permissions": {
       "sidebar": [
         "",
@@ -74,10 +71,7 @@
         "purchase",
         "quality"
       ],
-      "support": [
-        "chat",
-        "email"
-      ],
+      "support": [],
       "allowed_routes": [
         "/dashboard",
         "/sales",
@@ -101,10 +95,7 @@
         "purchase",
         "quality"
       ],
-      "support": [
-        "chat",
-        "email"
-      ],
+      "support": [],
       "allowed_routes": [
         "/dashboard",
         "/sales",
@@ -119,17 +110,14 @@
   },
   {
     "name": "Production Executive",
-    "role": "PRODUCTION_EXEC",
+    "role": "PRODUCTION",
     "password": "production123",
     "user_name": "production",
     "permissions": {
       "sidebar": [
         "production"
       ],
-      "support": [
-        "chat",
-        "email"
-      ],
+      "support": [],
       "allowed_routes": [
         "/production",
         "/chat",
