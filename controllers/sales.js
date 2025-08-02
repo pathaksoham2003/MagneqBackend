@@ -152,9 +152,10 @@ export const createSale = async (req, res) => {
     };
     let totalAmount = 0;
     const updatedFinishedGoods = [];
-
+    
     for (const item of saleData.finished_goods) {
       const {model, type, ratio, power, rate_per_unit, quantity} = item;
+      console.log(power)
 
       const finishedGood = await FinishedGoods.findOne({
         model,
