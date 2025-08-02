@@ -41,6 +41,7 @@ const salesSchema = new mongoose.Schema(
     total_amount: { type: mongoose.Schema.Types.Decimal128, default: 0 },
     recieved_amount : {type:mongoose.Schema.Types.Decimal128, default:0},
     created_by: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+    customer_created_by: {type: mongoose.Schema.Types.ObjectId, ref: "Customer"},
   },
   {timestamps: true}
 );

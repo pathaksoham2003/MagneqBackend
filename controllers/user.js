@@ -37,6 +37,7 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
+    console.log(req.body)
     const {user_name, password, role} = req.body;
     let user ;
     if(role?.toUpperCase() === "STAFF"){

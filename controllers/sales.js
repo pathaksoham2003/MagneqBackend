@@ -1,15 +1,23 @@
 import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
-import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
-import mongoose from 'mongoose'
+import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
+import mongoose from "mongoose";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 export const getTopStats = async (req, res) => {
   try {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
 
     const prevMonth = subMonths(now, 1);
     const prevMonthStart = startOfMonth(prevMonth);
@@ -28,7 +36,9 @@ export const getTopStats = async (req, res) => {
         {
           $match: {
             createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
+            status: {
+              $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"],
+            },
           },
         },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
@@ -37,7 +47,9 @@ export const getTopStats = async (req, res) => {
         {
           $match: {
             createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
-            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
+            status: {
+              $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"],
+            },
           },
         },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
@@ -131,7 +143,10 @@ export const getTopStats = async (req, res) => {
       total_sales_change: calcPercentage(currentSales, prevSales),
 
       total_outstanding_amount: currentOutstanding.toFixed(2),
-      total_outstanding_change: calcPercentage(currentOutstanding, prevOutstanding),
+      total_outstanding_change: calcPercentage(
+        currentOutstanding,
+        prevOutstanding
+      ),
 
       due_payment_count: currentDueCount,
       due_payment_change: calcPercentage(currentDueCount, prevDueCount),
@@ -142,20 +157,23 @@ export const getTopStats = async (req, res) => {
   }
 };
 
-
 export const createSale = async (req, res) => {
   try {
-    const saleData = {
+    let saleData = {
       ...req.body,
       status: "UN_APPROVED",
       created_by: req.user.id,
     };
+    if (req.user.role == "CUSTOMER") {
+      saleData = { ...saleData, customer_created_by: req.user.id };
+    }
+
     let totalAmount = 0;
     const updatedFinishedGoods = [];
-    
+
     for (const item of saleData.finished_goods) {
-      const {model, type, ratio, power, rate_per_unit, quantity} = item;
-      console.log(power)
+      const { model, type, ratio, power, rate_per_unit, quantity } = item;
+      console.log(power);
 
       const finishedGood = await FinishedGoods.findOne({
         model,
@@ -188,27 +206,27 @@ export const createSale = async (req, res) => {
     const sale = new Sales(saleData);
     const savedSale = await sale.save();
 
-    res.status(201).json({sale: savedSale});
+    res.status(201).json({ sale: savedSale });
   } catch (err) {
     console.error("Error in createSale:", err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 // export const
 export const approveSale = async (req, res) => {
   try {
-    const {id} = req.params;
-    const {finished_goods} = req.body;
+    const { id } = req.params;
+    const { finished_goods } = req.body;
     const sale = await Sales.findById(id);
 
     if (!sale) {
-      return res.status(404).json({error: "Sale not found"});
+      return res.status(404).json({ error: "Sale not found" });
     }
 
     if (sale.status !== "UN_APPROVED") {
       return res
         .status(400)
-        .json({error: "Sale is already approved or processed"});
+        .json({ error: "Sale is already approved or processed" });
     }
 
     // If rates are provided, update them before approval
@@ -216,13 +234,15 @@ export const approveSale = async (req, res) => {
       let totalAmount = 0;
       // Update only the rates for matching fg_id
       sale.finished_goods = sale.finished_goods.map((origItem) => {
-        const updateItem = finished_goods.find(fg => {
+        const updateItem = finished_goods.find((fg) => {
           // fg_id can be string or ObjectId, so compare as string
           return fg.fg_id?.toString() === origItem.finished_good.toString();
         });
         if (updateItem) {
           const rate = parseFloat(updateItem.rate_per_unit || 0);
-          const quantity = parseFloat(updateItem.quantity || origItem.quantity || 0);
+          const quantity = parseFloat(
+            updateItem.quantity || origItem.quantity || 0
+          );
           const itemTotal = rate * quantity;
           totalAmount += itemTotal;
           return {
@@ -264,29 +284,29 @@ export const approveSale = async (req, res) => {
 
     res
       .status(200)
-      .json({message: "Sale approved", sale, productions: productionRecords});
+      .json({ message: "Sale approved", sale, productions: productionRecords });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 // Add a rejectSale endpoint
 export const rejectSale = async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
     const sale = await Sales.findById(id);
     if (!sale) {
-      return res.status(404).json({error: "Sale not found"});
+      return res.status(404).json({ error: "Sale not found" });
     }
     if (sale.status !== "UN_APPROVED") {
-      return res.status(400).json({error: "Sale is already processed"});
+      return res.status(400).json({ error: "Sale is already processed" });
     }
     sale.status = "CANCELLED";
     sale.updated_at = new Date();
     await sale.save();
-    res.status(200).json({message: "Sale rejected", sale});
+    res.status(200).json({ message: "Sale rejected", sale });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -296,16 +316,18 @@ export const getAllSales = async (req, res) => {
     const PAGE_SIZE = 10;
     const searchOrderId = req.query.search ? parseInt(req.query.search) : null;
 
-    const query = searchOrderId ? {order_id: searchOrderId} : {};
+    const query = searchOrderId ? { order_id: searchOrderId } : {};
 
     if (req.user?.role === "CUSTOMER") {
+      query.customer_created_by = req.user.id;
+    } else {
       query.created_by = req.user.id;
     }
 
     const totalCount = await Sales.countDocuments(query);
 
     const sales = await Sales.find(query)
-      .sort({createdAt: -1})
+      .sort({ createdAt: -1 })
       .skip((pageNo - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
       .populate({
@@ -315,6 +337,10 @@ export const getAllSales = async (req, res) => {
       .populate({
         path: "created_by",
         select: "name user_name role",
+      })
+      .populate({
+        path: "customer_created_by",
+        select: "name user_name",
       });
 
     const items = sales.map((sale) => {
@@ -349,7 +375,7 @@ export const getAllSales = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -374,14 +400,14 @@ export const getSaleById = async (req, res) => {
       "Order Details": sale.finished_goods.map((item) => {
         return `${getFgModelNumber(item.finished_good)}/${item.quantity}`;
       }),
-      "Total Price":Number(sale.total_amount),
+      "Total Price": Number(sale.total_amount),
       "Recieved Amount": Number(sale.recieved_amount),
       Status: sale.status,
     };
 
     const finishedGoods = sale.finished_goods.map((item) => {
       return {
-        fg_id:item.finished_good._id,
+        fg_id: item.finished_good._id,
         quantity: item.quantity,
         finished_good: getFgModelNumber(item.finished_good),
         rate_per_unit: Number(item.rate_per_unit),
@@ -390,19 +416,20 @@ export const getSaleById = async (req, res) => {
       };
     });
 
-    if (!sale) return res.status(404).json({message: "Sale not found"});
-    res
-      .status(200)
-      .json({headerLevelData, itemLevelData: {header, items: finishedGoods}});
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+    res.status(200).json({
+      headerLevelData,
+      itemLevelData: { header, items: finishedGoods },
+    });
   } catch (err) {
-    console.log(err)
-    res.status(500).json({error: err.message});
+    console.log(err);
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const updateSale = async (req, res) => {
   try {
-    let updateData = {...req.body};
+    let updateData = { ...req.body };
 
     if (updateData.finished_goods) {
       let totalAmount = 0;
@@ -427,63 +454,66 @@ export const updateSale = async (req, res) => {
       .populate("finished_goods.finished_good")
       .populate("created_by");
 
-    if (!updated) return res.status(404).json({message: "Sale not found"});
+    if (!updated) return res.status(404).json({ message: "Sale not found" });
     res.status(200).json(updated);
   } catch (err) {
-    res.status(400).json({error: err.message});
+    res.status(400).json({ error: err.message });
   }
 };
 
 export const deleteSale = async (req, res) => {
   try {
     const deleted = await Sales.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({message: "Sale not found"});
-    res.status(200).json({message: "Sale deleted"});
+    if (!deleted) return res.status(404).json({ message: "Sale not found" });
+    res.status(200).json({ message: "Sale deleted" });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const updateSaleStatus = async (req, res) => {
-  try{
-    const {status} =req.body;
+  try {
+    const { status } = req.body;
     if (!status) {
       return res.status(400).json({ message: "Status is required" });
     }
-    const sale = await Sales.findByIdAndUpdate(req.params.id, {status}, {new:true} );
-    if (!sale) return  res.status(404).json({message: "Sale not found"});
-    res.status(200).json({message : "Status updated"});
-  } catch (err){
-    res.status(500).json({error : err.message});
+    const sale = await Sales.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+    res.status(200).json({ message: "Status updated" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-}
+};
 
-export const saleAmountRecieved = async (req, res) =>{
-  try{
-
-    const {recieved_amt} = req.body;
-    if(!recieved_amt) return res.status(400).json({message:"Amount is required"});
+export const saleAmountRecieved = async (req, res) => {
+  try {
+    const { recieved_amt } = req.body;
+    if (!recieved_amt)
+      return res.status(400).json({ message: "Amount is required" });
 
     const sale = await Sales.findById(req.params.id, {
       total_amount: 1,
-      recieved_amount: 1
+      recieved_amount: 1,
     });
 
-    if(!sale) return res.status(404).json({message:"Sale not Found"})
+    if (!sale) return res.status(404).json({ message: "Sale not Found" });
 
     const updatedAmount = Number(sale.recieved_amount) + Number(recieved_amt);
 
-
     if (updatedAmount > Number(sale.total_amount)) {
       return res.status(400).json({
-        message: "Received amount exceeds the total amount due"
+        message: "Received amount exceeds the total amount due",
       });
     }
 
     sale.recieved_amount = updatedAmount;
     await sale.save();
     return res.status(200).json({ message: "Amount updated", sale });
-  }catch (err){
+  } catch (err) {
     return res.status(500).json({ message: "Internal server error" });
   }
-}
+};
