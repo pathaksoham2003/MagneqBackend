@@ -171,7 +171,7 @@ router.post("/", authenticate, createSale);
  *       400:
  *         description: Sale is already approved or processed
  */
-router.patch("/:id/approve", approveSale);
+router.patch("/:id/approve", authenticate, approveSale);
 /**
  * @swagger
  * /api/sales/{id}/reject:
@@ -193,7 +193,7 @@ router.patch("/:id/approve", approveSale);
  *       400:
  *         description: Sale is already processed
  */
-router.patch("/:id/reject", rejectSale);
+router.patch("/:id/reject", authenticate, rejectSale);
 
 /**
  * @swagger
@@ -390,7 +390,7 @@ router.patch("/:id/status", updateSaleStatus);
  *             type: object
  *             properties:
  *               recieved_amt:
- *                 type: number 
+ *                 type: number
  *             required:
  *               - recieved_amt
  *     responses:
