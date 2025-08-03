@@ -320,10 +320,7 @@ export const getAllSales = async (req, res) => {
 
     if (req.user?.role === "CUSTOMER") {
       query.customer_created_by = req.user.id;
-    } else {
-      query.created_by = req.user.id;
-    }
-
+    } 
     const totalCount = await Sales.countDocuments(query);
 
     const sales = await Sales.find(query)

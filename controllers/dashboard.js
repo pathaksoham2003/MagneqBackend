@@ -136,7 +136,7 @@ export const getSalesTable = async (req, res) => {
 export const getSalesStatistics = async (req, res) => {
   try {
     const monthlySales = await Sales.aggregate([
-      { $match: { status: { $nin: ["PROCESSED", "DISPATCHED", "DELIVERED", "CANCELLED"] } } },
+      { $match: { status: { $nin: ["CANCELLED"] } } },
       {
         $group: {
           _id: { $month: "$createdAt" },

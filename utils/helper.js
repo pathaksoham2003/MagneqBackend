@@ -86,7 +86,12 @@ export const getFgModelNumber = (fg) => {
   if (!fg || typeof fg !== "object") return "InvalidFG";
 
   const model = fg.model || "$";
-  const type = fg.type || "$";
+  let type = "";
+  if(fg.type === "Base (Foot)"){
+    type = "B" || "$";
+  }else if (fg.type === "Vertical (Flange)"){
+    type = "B" || "$";
+  }
   const ratio = formatPower(fg.ratio || "$");
   const otherSpec = fg.other_specification || {};
   const shaft = otherSpec.motor_shaft_diameter || "$";
