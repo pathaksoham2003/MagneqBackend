@@ -320,7 +320,10 @@ export const getAllSales = async (req, res) => {
     const query = searchOrderId ? {order_id: searchOrderId} : {};
 
     if (req.user?.role === "CUSTOMER") {
-      query.customer_created_by = req.user.id;
+      query.customer_name = { $regex: `^${req.user.name}$`, $options: 'i' };
+      // query.customer_created_by = req.user.id;
+    } else if (req.user?.role === "SALES"){
+      query.created_by = new mongoose.Types.ObjectId(req.user.id)
     }
     const totalCount = await Sales.countDocuments(query);
 
@@ -340,7 +343,7 @@ export const getAllSales = async (req, res) => {
         path: "customer_created_by",
         select: "name user_name",
       });
-
+      console.log("")
     const items = sales.map((sale) => {
       const orderDetails = sale.finished_goods.map((fg) => {
         const fgData = fg.finished_good;
@@ -401,7 +404,7 @@ export const getSaleById = async (req, res) => {
         sale.customer_created_by?.user_name ||
         N / A,
       [`${sale.status == "CANCELLED" ? "Rejected by" : "Approved by"}`]:
-        sale?.approved_reject_by || N / A,
+        sale?.approved_reject_by ||" N / A",
       "Total Price": Number(sale.total_amount),
       "Recieved Amount": Number(sale.recieved_amount),
       Status: sale.status,
@@ -414,6 +417,7 @@ export const getSaleById = async (req, res) => {
         finished_good: getFgModelNumber(item.finished_good),
         rate_per_unit: Number(item.rate_per_unit),
         item_total_price: Number(item.item_total_price),
+        base_price :Number(item.finished_good.base_price),
         status: item.status,
       };
     });
