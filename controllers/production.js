@@ -4,6 +4,44 @@ import RawMaterials from "../models/RawMaterials.js";
 import Sales from "../models/Sales.js";
 import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
 
+export const createProductionOrder = async(req,res) => {
+  try{
+    let productionData = {
+      ...req.body,
+      status: "UN_PROCESSED",
+    };
+    const productionRecords = [];
+    for (let item of productionData.finished_goods) {
+      const {model, type, ratio, power, quantity} = item;
+      const finishedGood = await FinishedGoods.findOne({
+        model,
+        type,
+        ratio,
+        power,
+      });
+    
+      if (!finishedGood) {
+        console.log("fg not found")
+        return res.status(404).json({
+          error: `Finished good not found for model: ${model}, type: ${type}, ratio: ${ratio}, power: ${power}`,
+        });
+      }
+      const production = new Production({
+        customer_name: "N / A",
+        finished_good: finishedGood._id,
+        quantity: quantity,
+        status: "UN_PROCESSED",
+        isProduction: true,
+      });
+      await production.save();
+      productionRecords.push(production);  
+    }
+    res.status(200).json({message:"Production order creted successfully",productions: productionRecords})
+  }catch(err){
+    res.status(500).json({error: err.message});
+  }
+}
+
 export const getPendingProductionOrders = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -220,44 +258,61 @@ export const startProduction = async (req, res) => {
 
 export const makeReady = async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
 
     const production = await Production.findById(id);
-    if (!production)
-      return res.status(404).json({message: "Production not found"});
-
-    production.status = "READY";
-    production.updated_at = new Date();
-    await production.save();
-
-    await FinishedGoods.findByIdAndUpdate(production.finished_good, {
-      $inc: {units: 1},
-    });
-
-    const salesRecord = await Sales.findOne({order_id: production.order_id});
-    if (salesRecord) {
-      const fgItem = salesRecord.finished_goods.find(
-        (item) =>
-          item.finished_good.toString() === production.finished_good.toString()
-      );
-      if (fgItem) {
-        fgItem.status = true;
-      }
-
-      const allProcessed = salesRecord.finished_goods.every(
-        (item) => item.status === true
-      );
-      if (allProcessed) {
-        salesRecord.status = "PROCESSED";
-      }
-
-      await salesRecord.save();
+    if (!production) {
+      return res.status(404).json({ message: "Production not found" });
     }
 
-    res
-      .status(200)
-      .json({message: "Production marked as READY and updates applied"});
+    await FinishedGoods.findByIdAndUpdate(production.finished_good, {
+      $inc: { units: 1 },
+    });
+
+    if (production.isProduction) {
+      production.status = "COMPLETED";
+      production.updated_at = new Date();
+      await production.save();
+
+      return res.status(200).json({
+        message: "Standalone production marked as COMPLETED.",
+      });
+    } else {
+      production.status = "READY";
+      production.updated_at = new Date();
+      await production.save();
+
+      const salesRecord = await Sales.findOne({
+        order_id: production.order_id,
+      });
+
+      if (salesRecord) {
+        const fgItem = salesRecord.finished_goods.find(
+          (item) =>
+            item.finished_good.toString() === production.finished_good.toString()
+        );
+
+        if (fgItem) {
+          fgItem.status = true;
+        }
+
+        const allProcessed = salesRecord.finished_goods.every(
+          (item) => item.status === true
+        );
+
+        if (allProcessed) {
+          salesRecord.status = "PROCESSED";
+        }
+
+        await salesRecord.save();
+      }
+
+      return res.status(200).json({
+        message: "Production marked as READY and sales order updated.",
+      });
+    }
   } catch (err) {
-    res.status(500).json({error: err.message});
+    console.error("Error in makeReady:", err);
+    return res.status(500).json({ error: err.message });
   }
 };

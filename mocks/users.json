@@ -115,11 +115,13 @@
     "user_name": "production",
     "permissions": {
       "sidebar": [
-        "production"
+        "production",
+        "create PRO"
       ],
       "support": [],
       "allowed_routes": [
         "/production",
+        "/create_pro",
         "/chat",
         "/email"
       ]
