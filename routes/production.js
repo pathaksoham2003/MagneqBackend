@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+  createProductionOrder,
   getPendingProductionOrders,
   getProductionDetails,
   makeReady,
@@ -76,7 +77,7 @@ const router = express.Router();
  *                   example: 12
  */
 router.get('/', getPendingProductionOrders);
-
+router.post('/create_pro',createProductionOrder);
 /**
  * @swagger
  * /api/production/{id}:

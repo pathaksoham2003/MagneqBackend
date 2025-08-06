@@ -173,7 +173,7 @@ export const createSale = async (req, res) => {
 
     for (const item of saleData.finished_goods) {
       const {model, type, ratio, power, rate_per_unit, quantity} = item;
-      console.log(power);
+
 
       const finishedGood = await FinishedGoods.findOne({
         model,
@@ -276,6 +276,7 @@ export const approveSale = async (req, res) => {
         status: "UN_PROCESSED",
         created_at: new Date(),
         updated_at: new Date(),
+        isProduction: false,
       });
 
       await production.save();
@@ -402,7 +403,7 @@ export const getSaleById = async (req, res) => {
       "Created By":
         sale.created_by?.user_name ||
         sale.customer_created_by?.user_name ||
-        N / A,
+        "N / A",
       [`${sale.status == "CANCELLED" ? "Rejected by" : "Approved by"}`]:
         sale?.approved_reject_by ||" N / A",
       "Total Price": Number(sale.total_amount),

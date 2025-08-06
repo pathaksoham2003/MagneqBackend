@@ -11,7 +11,8 @@ const productionSchema = new mongoose.Schema(
     customer_name: String,
     created_at: Date,
     updated_at: Date,
-    status: {type: String, enum: ["UN_PROCESSED", "IN_PROCESSES", "READY"]},
+    status: {type: String, enum: ["UN_PROCESSED", "IN_PROCESSES", "READY","COMPLETED"]},
+    isProduction: Boolean,
   },
   {timestamps: true}
 );
