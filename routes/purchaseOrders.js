@@ -7,7 +7,9 @@ import {
   updatePurchaseOrder,
   getPurchaseDetails,
   getPendingPurchases,
-  getPurchaseStats
+  getPurchaseStats,
+  getAllVendors,
+  getAllVendorPurchases
 } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
@@ -110,6 +112,8 @@ const router = express.Router();
  *         description: Server error
  */
 router.post('/', createPurchaseOrder);
+router.get('/vendor_purchase',getAllVendors);
+router.get('/vendor_purchase_list',getAllVendorPurchases);
 
 /**
  * @swagger
@@ -223,7 +227,7 @@ router.get("/stats", getPurchaseStats);
  *         description: Internal server error
  */
 router.put('/:id', updatePurchaseOrder);
-
+router.get('/vendor_purchase',getAllVendors);
 /**
  * @swagger
  * /api/purchase_order/{po_id}:
