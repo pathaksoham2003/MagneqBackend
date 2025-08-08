@@ -480,21 +480,46 @@ export const deleteSale = async (req, res) => {
 
 export const updateSaleStatus = async (req, res) => {
   try {
-    const {status} = req.body;
+    const { status } = req.body;
+    console.log(status)
     if (!status) {
-      return res.status(400).json({message: "Status is required"});
+      return res.status(400).json({ message: "Status is required" });
     }
-    const sale = await Sales.findByIdAndUpdate(
-      req.params.id,
-      {status},
-      {new: true}
-    );
-    if (!sale) return res.status(404).json({message: "Sale not found"});
-    res.status(200).json({message: "Status updated"});
+    const sale = await Sales.findById(req.params.id).populate("finished_goods.finished_good");
+
+    if (!sale) {
+      return res.status(404).json({ message: "Sale not found" });
+    }
+
+    if (status === "DISPATCHED" && sale.status !== "DISPATCHED") {
+      for (const item of sale.finished_goods) {
+        const fg = await FinishedGoods.findById(item.finished_good);
+        console.log(fg)
+        if (!fg) {
+          return res.status(404).json({ message: `FinishedGood not found for item ${item._id}` });
+        }
+
+        if (fg.unit_count < item.quantity) {
+          return res.status(400).json({
+            message: `Not enough stock for ${fg.name || fg._id}`,
+          });
+        }
+
+        fg.unit_count -= item.quantity;
+        await fg.save();
+      }
+    }
+
+    sale.status = status;
+    await sale.save();
+
+    return res.status(200).json({ message: "Status updated successfully" });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    console.error(err);
+    return res.status(500).json({ error: err.message });
   }
 };
+
 
 export const saleAmountRecieved = async (req, res) => {
   try {

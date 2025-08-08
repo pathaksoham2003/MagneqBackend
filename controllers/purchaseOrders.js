@@ -2,7 +2,8 @@ import {PO_ITEM_STATUS, PO_STATUS} from "../enums/purchase.js";
 import Purchase from "../models/Purchase.js";
 import RawMaterials from "../models/RawMaterials.js";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
-
+import Vendor from "../models/Vendors.js";
+import mongoose from "mongoose";
 
 export const createPurchaseOrder = async (req, res) => {
   try {
@@ -424,6 +425,117 @@ export const getPurchaseStats = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in getPurchaseStats:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+export const getAllVendors = async (req,res) => {
+  try {
+      const {page, limit = 10, search = ""} = req.query;
+      const pageNo = parseInt(page);
+      const pageSize = 10;
+  
+      const searchRegex = new RegExp(search, "i");
+      const filter = search ? {name: searchRegex} : {};
+  
+      const totalItems = await Vendor.countDocuments(filter);
+  
+      const vendors = await Vendor.find(filter)
+        .skip((pageNo - 1) * pageSize)
+        .limit(pageSize);
+  
+      const formatted = vendors.map((vendor) => ({
+        id: vendor._id,
+        data: [vendor.name || "", vendor.phone || ""],
+      }));
+      console.log({
+        header: ["Vendor Name", "Phone Number"],
+        item: formatted,
+        page_no: pageNo,
+        total_pages: Math.ceil(totalItems / pageSize),
+        total_items: totalItems,
+      })
+      res.status(200).json({
+        header: ["Vendor Name", "Phone Number"],
+        item: formatted,
+        page_no: pageNo,
+        total_pages: Math.ceil(totalItems / pageSize),
+        total_items: totalItems,
+      });
+  } catch (err) {
+      console.error("Error fetching Vendors:", err);
+      res.status(500).json({error: "Failed to fetch vendors"});
+  }
+};
+
+export const getAllVendorPurchases = async (req, res) => {
+  try {
+    const { id, page, limit = 10 } = req.query;
+    console.log(id);
+    const pageNo = parseInt(page) || 1;
+    const PAGE_SIZE = parseInt(limit) || 10;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid vendor ID" });
+    }
+
+    const vendor = await Vendor.findById(id);
+    if (!vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+
+    const filter = { vendor_name: vendor.name };
+    const totalCount = await Purchase.countDocuments(filter);
+
+    const purchases = await Purchase.find(filter)
+      .sort({ created_at: -1 })
+      .skip((pageNo - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE)
+      .populate({
+        path: "items.raw_material_id",
+        select: "class_type",
+      });
+
+    const purchaseItems = purchases.map((purchase) => {
+      const classTotals = { A: 0, B: 0, C: 0 };
+
+      for (const item of purchase.items) {
+        const classType = item.raw_material_id?.class_type;
+        if (classType && classTotals.hasOwnProperty(classType)) {
+          classTotals[classType] += item.quantity;
+        }
+      }
+
+      const orderDetails = Object.entries(classTotals)
+        .filter(([_, qty]) => qty > 0)
+        .map(([cls, qty]) => `${cls}/${qty}`);
+
+      return {
+        id: purchase._id,
+        data: [
+          `PRO-${purchase.po_number}`,
+          purchase.vendor_name,
+          purchase.purchasing_date,
+          orderDetails,
+          purchase.status,
+        ],
+      };
+    });
+
+    res.status(200).json({
+      header: [
+        "Production Id",
+        "Vendor Name",
+        "Date of purchase",
+        "Order Details",
+        "Status",
+      ],
+      item: purchaseItems,
+      page_no: pageNo,
+      total_pages: Math.ceil(totalCount / PAGE_SIZE),
+      total_items: totalCount,
+    });
+  } catch (err) {
+    console.error("Error in getAllVendorPurchases:", err);
     res.status(500).json({ error: err.message });
   }
 };
