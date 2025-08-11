@@ -13,7 +13,6 @@ export const createFinishedGood = async (req, res) => {
       rate_per_unit ="0" ,
       base_price ,
     } = req.body;
-    console.log(req.body);
     if (!power || !ratio || !type || !model) {
       return res.status(400).json({
         error: "Power, ratio, and type are required to generate model number.",

@@ -324,7 +324,7 @@ export const getAllSales = async (req, res) => {
       query.customer_name = { $regex: `^${req.user.name}$`, $options: 'i' };
       // query.customer_created_by = req.user.id;
     } else if (req.user?.role === "SALES"){
-      query.created_by = new mongoose.Types.ObjectId(req.user.id)
+      // query.created_by = new mongoose.Types.ObjectId(req.user.id)
     }
     const totalCount = await Sales.countDocuments(query);
 

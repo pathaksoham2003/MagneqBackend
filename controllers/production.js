@@ -21,7 +21,6 @@ export const createProductionOrder = async(req,res) => {
       });
     
       if (!finishedGood) {
-        console.log("fg not found")
         return res.status(404).json({
           error: `Finished good not found for model: ${model}, type: ${type}, ratio: ${ratio}, power: ${power}`,
         });
