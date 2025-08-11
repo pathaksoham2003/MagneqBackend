@@ -6,7 +6,7 @@ The **MagneqBackend** is a powerful and modular Node.js backend built with Expre
 
 ## 📊 ER Diagram
 
-![ER Diagram](assets/er-diagram.png)
+![ER Diagram](assets/MAGNEQ.png)
 
 --
 
