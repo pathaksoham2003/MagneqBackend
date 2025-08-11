@@ -4,6 +4,12 @@ The **MagneqBackend** is a powerful and modular Node.js backend built with Expre
 
 ---
 
+## 📊 ER Diagram
+
+![ER Diagram](assets/er-diagram.png)
+
+--
+
 ## ⚙️ Requirements
 
 - **Node.js**: `v22.4.1`
