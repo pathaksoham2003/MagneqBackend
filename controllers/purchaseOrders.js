@@ -305,6 +305,7 @@ export const getPurchaseDetails = async (req, res) => {
       type: item.raw_material_id?.type,
       price_per_unit: item.price_per_unit,
       quantity: item.quantity,
+      recieved_quantity: item.recieved_quantity,
     }));
 
     const response = {
