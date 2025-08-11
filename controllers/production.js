@@ -96,7 +96,7 @@ export const getPendingProductionOrders = async (req, res) => {
       return {
         id: production._id,
         data: [
-          `PRO-${production.pro_id}(SO-${production.order_id})`,
+          `PRO-${production.pro_id}(SO-${production.order_id || "PRO"})`,
           production.customer_name || "Unknown Vendor",
           production.createdAt,
           orderDetails,

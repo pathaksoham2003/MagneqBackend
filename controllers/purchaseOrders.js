@@ -87,7 +87,7 @@ export const getAllPurchases = async (req, res) => {
         data: [
           `PRO-${purchase.po_number}`,
           purchase.vendor_name,
-          purchase.purchasing_date,
+          new Date(purchase.purchasing_date).toLocaleDateString("en-GB"),
           orderDetails,
           purchase.status,
         ],
@@ -198,6 +198,7 @@ export const getPurchaseOrderItems = async (req, res) => {
         _id:item._id,
         name: material.name || material.model || "Unnamed",
         max_allowed: max_allowed < 0 ? 0 : max_allowed,
+        class_type: class_type,
       });
     }
 
