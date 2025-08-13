@@ -344,7 +344,6 @@ export const getAllSales = async (req, res) => {
         path: "customer_created_by",
         select: "name user_name",
       });
-      console.log("")
     const items = sales.map((sale) => {
       const orderDetails = sale.finished_goods.map((fg) => {
         const fgData = fg.finished_good;

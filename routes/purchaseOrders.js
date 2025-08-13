@@ -7,10 +7,16 @@ import {
   updatePurchaseOrder,
   getPurchaseDetails,
   getPendingPurchases,
-  getPurchaseStats
+  getPurchaseStats,
+  getAllVendors,
+  getAllVendorPurchases
 } from '../controllers/purchaseOrders.js';
 
 const router = express.Router();
+
+
+router.get('/vendor_purchase',getAllVendors);
+router.get('/vendor_purchase_list',getAllVendorPurchases);
 
 /**
  * @swagger
@@ -350,5 +356,6 @@ router.get('/:po_number/items', getPurchaseOrderItems);
  *         description: Server error
  */
 router.patch('/add_stock', addStockToPurchaseOrder);
+
 
 export default router;
