@@ -8,24 +8,24 @@ import {
 export const getRawMaterialById = async (req, res) => {
   try {
     const material = await RawMaterial.findById(req.params.id);
-    if (!material) return res.status(404).json({error: "Not found"});
+    if (!material) return res.status(404).json({ error: "Not found" });
     res.json(material);
   } catch (err) {
-    res.status(500).json({error: "Error fetching raw material"});
+    res.status(500).json({ error: "Error fetching raw material" });
   }
 };
 
 export const getRawMaterialByClassAndId = async (req, res) => {
   try {
     const { class_type, id } = req.params;
-    
+
     if (!["A", "B", "C"].includes(class_type)) {
       return res.status(400).json({ error: "Invalid class type" });
     }
 
-    const material = await RawMaterial.findOne({ 
-      _id: id, 
-      class_type: class_type 
+    const material = await RawMaterial.findOne({
+      _id: id,
+      class_type: class_type
     });
 
     if (!material) {
@@ -87,7 +87,7 @@ export const getRawMaterialFilterConfig = async (req, res) => {
     res.status(200).json(config);
   } catch (e) {
     console.error("Error building filter config:", e);
-    res.status(500).json({error: "Failed to fetch filter config"});
+    res.status(500).json({ error: "Failed to fetch filter config" });
   }
 };
 
@@ -132,8 +132,8 @@ export const getRawMaterialsByClass = async (req, res) => {
       const quantityStr =
         typeof rm.quantity === "object"
           ? Object.entries(rm.quantity || {})
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(", ")
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(", ")
           : rm.quantity?.toString() || "0";
 
       // Calculate stock status
@@ -154,9 +154,9 @@ export const getRawMaterialsByClass = async (req, res) => {
       return {
         id: rm._id,
         data: [
-          rm.class_type || "", 
-          rm.name || "", 
-          rm.type || "", 
+          rm.class_type || "",
+          rm.name || "",
+          rm.type || "",
           quantityStr || "0",
           stockStatus
         ],
@@ -181,7 +181,7 @@ export const getRawMaterialsByClass = async (req, res) => {
 
 export const getFilteredRawMaterials = async (req, res) => {
   try {
-    const {class_type, type, model, name} = req.query;
+    const { class_type, type, model, name } = req.query;
 
     const filter = {};
     if (class_type) filter.class_type = class_type;
@@ -197,32 +197,32 @@ export const getFilteredRawMaterials = async (req, res) => {
 
     res.status(200).json(filteredRawMaterials);
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const createRawMaterial = async (req, res) => {
   try {
-    const {class_type} = req.body;
+    const { class_type } = req.body;
 
     if (!class_type) {
-      return res.status(400).json({error: "class_type is required"});
+      return res.status(400).json({ error: "class_type is required" });
     }
 
     const material = new RawMaterial(req.body);
     await material.save();
-    res.status(201).json({message: "Raw material created", material});
+    res.status(201).json({ message: "Raw material created", material });
   } catch (err) {
-    res.status(400).json({error: "Creation failed", details: err.message});
+    res.status(400).json({ error: "Creation failed", details: err.message });
   }
 };
 
 export const updateRawMaterial = async (req, res) => {
   try {
-    const {class_type} = req.body;
+    const { class_type } = req.body;
 
     if (!class_type) {
-      return res.status(400).json({error: "class_type is required"});
+      return res.status(400).json({ error: "class_type is required" });
     }
 
     const missingFields = validateFieldsByClass(class_type, req.body);
@@ -242,12 +242,12 @@ export const updateRawMaterial = async (req, res) => {
     );
 
     if (!updated) {
-      return res.status(404).json({error: "Raw material not found"});
+      return res.status(404).json({ error: "Raw material not found" });
     }
 
-    res.json({message: "Updated successfully", updated});
+    res.json({ message: "Updated successfully", updated });
   } catch (err) {
-    res.status(400).json({error: "Update failed", details: err.message});
+    res.status(400).json({ error: "Update failed", details: err.message });
   }
 };
 
@@ -270,7 +270,7 @@ export const getAllRawMaterials = async (req, res) => {
 
     res.json(grouped);
   } catch (err) {
-    res.status(500).json({error: "Failed to fetch raw materials"});
+    res.status(500).json({ error: "Failed to fetch raw materials" });
   }
 };
 
@@ -278,10 +278,10 @@ export const getAllRawMaterials = async (req, res) => {
 export const deleteRawMaterial = async (req, res) => {
   try {
     const deleted = await RawMaterial.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({error: "Not found"});
-    res.json({message: "Deleted successfully"});
+    if (!deleted) return res.status(404).json({ error: "Not found" });
+    res.json({ message: "Deleted successfully" });
   } catch (err) {
-    res.status(400).json({error: "Delete failed", details: err.message});
+    res.status(400).json({ error: "Delete failed", details: err.message });
   }
 };
 
@@ -318,7 +318,7 @@ export const getRawMaterialStockStats = async (req, res) => {
 
       // Determine stock status
       const isInStock = currentQuantity > minQuantity;
-      
+
       if (isInStock) {
         stats[material.class_type].inStock++;
       } else {
@@ -329,7 +329,7 @@ export const getRawMaterialStockStats = async (req, res) => {
     res.json(stats);
   } catch (err) {
     console.error("Error fetching stock stats:", err);
-    res.status(500).json({error: "Failed to fetch stock statistics"});
+    res.status(500).json({ error: "Failed to fetch stock statistics" });
   }
 };
 
@@ -352,7 +352,7 @@ export const transitionQuantity = async (req, res) => {
     }
 
     let qty = material.quantity || {};
-    
+
     // Check if from field exists and has sufficient quantity
     if (!qty.hasOwnProperty(from)) {
       return res.status(400).json({ error: `Field '${from}' does not exist in quantity object` });
@@ -370,14 +370,86 @@ export const transitionQuantity = async (req, res) => {
     // Perform the transition
     qty[from] = (qty[from] || 0) - quantity;
     qty[to] = (qty[to] || 0) + quantity;
-    
+
     material.quantity = qty;
     material.markModified('quantity');
     await material.save();
-    
+
     res.json(material);
   } catch (err) {
     console.error("Error transitioning quantity:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
+
+export const getShortRawMaterialsByClass = async (req, res) => {
+  try {
+    const { class_type } = req.query;
+    const { page = 1 } = req.query;
+    const limit = 10;
+    if (!["A", "B", "C"].includes(class_type)) {
+      return res.status(400).json({ error: "Invalid class type" });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Fetch all raw materials of this class
+    const rawMaterials = await RawMaterial.find({ class_type }).lean();
+
+    // Filter short items based on rules
+    const shortItems = rawMaterials.filter((rm) => {
+      let checkQty = 0;
+
+      if (class_type === "A" || class_type === "C") {
+        checkQty = rm.quantity?.processed || 0;
+      } else if (class_type === "B") {
+        checkQty = rm.quantity?.unprocessed || 0;
+      }
+
+      return checkQty < (rm.min_quantity || 0);
+    });
+
+    const total_items = shortItems.length;
+    const total_pages = Math.ceil(total_items / limit);
+
+    // Apply pagination after filtering
+    const paginatedItems = shortItems.slice(skip, skip + parseInt(limit));
+
+    // Build response rows
+    const header = ["Class", "Product Name", "Type", "Quantity", "Min Quantity"];
+
+    const item = paginatedItems.map((rm) => {
+      let quantityStr = "";
+      if (typeof rm.quantity === "object") {
+        quantityStr = Object.entries(rm.quantity)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ");
+      } else {
+        quantityStr = rm.quantity?.toString() || "0";
+      }
+
+      return {
+        id: rm._id,
+        data: [
+          rm.class_type || "",
+          rm.name || "",
+          rm.type || "",
+          quantityStr,
+          rm.min_quantity?.toString() || "0",
+        ],
+      };
+    });
+
+    return res.json({
+      header,
+      item,
+      page_no: parseInt(page),
+      total_pages,
+      total_items,
+    });
+  } catch (error) {
+    console.error("Error fetching short raw materials:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+

@@ -11,7 +11,8 @@ import {
   getRawMaterialsByClass,
   getRawMaterialFilterConfig,
   getRawMaterialStockStats,
-  transitionQuantity
+  transitionQuantity,
+  getShortRawMaterialsByClass
 } from '../controllers/rawMaterials.js';
 
 /**
@@ -20,6 +21,9 @@ import {
  *   name: RawMaterial
  *   description: Raw material management
  */
+
+
+router.get("/short", getShortRawMaterialsByClass);
 
 /**
  * @swagger
