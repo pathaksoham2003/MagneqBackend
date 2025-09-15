@@ -281,30 +281,30 @@ export const makeReady = async (req, res) => {
       production.updated_at = new Date();
       await production.save();
 
-      const salesRecord = await Sales.findOne({
-        order_id: production.order_id,
-      });
+      // const salesRecord = await Sales.findOne({
+      //   order_id: production.order_id,
+      // });
 
-      if (salesRecord) {
-        const fgItem = salesRecord.finished_goods.find(
-          (item) =>
-            item.finished_good.toString() === production.finished_good.toString()
-        );
+      // if (salesRecord) {
+      //   const fgItem = salesRecord.finished_goods.find(
+      //     (item) =>
+      //       item.finished_good.toString() === production.finished_good.toString()
+      //   );
 
-        if (fgItem) {
-          fgItem.status = true;
-        }
+      //   if (fgItem) {
+      //     fgItem.status = true;
+      //   }
 
-        const allProcessed = salesRecord.finished_goods.every(
-          (item) => item.status === true
-        );
+      //   const allProcessed = salesRecord.finished_goods.every(
+      //     (item) => item.status === true
+      //   );
 
-        if (allProcessed) {
-          salesRecord.status = "PROCESSED";
-        }
+      //   // if (allProcessed) {
+      //   //   salesRecord.status = "PROCESSED";
+      //   // }
 
-        await salesRecord.save();
-      }
+      //   await salesRecord.save();
+      // }
 
       return res.status(200).json({
         message: "Production marked as READY and sales order updated.",
