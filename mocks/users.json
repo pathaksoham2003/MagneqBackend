@@ -116,7 +116,7 @@
     "permissions": {
       "sidebar": [
         "production",
-        "create PRO"
+        "create_pro"
       ],
       "support": [],
       "allowed_routes": [

@@ -18,6 +18,7 @@ const finishedGoodsSchema = new mongoose.Schema({
   rate_per_unit: { type: mongoose.Schema.Types.Decimal128, default: 0.0 },
   base_price: { type: mongoose.Schema.Types.Decimal128, default: 0.0 },
   units: Number,
+  gst_slab:{ type: mongoose.Schema.Types.Decimal128, default: 0.0 },
 });
 
 export default mongoose.model("FinishedGoods", finishedGoodsSchema);

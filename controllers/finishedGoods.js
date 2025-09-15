@@ -12,8 +12,9 @@ export const createFinishedGood = async (req, res) => {
       other_specification = {},
       rate_per_unit ="0" ,
       base_price ,
+      gst_slab
     } = req.body;
-    if (!power || !ratio || !type || !model) {
+    if (!power || !ratio || !type || !model || !gst_slab) {
       return res.status(400).json({
         error: "Power, ratio, and type are required to generate model number.",
       });
@@ -51,6 +52,7 @@ export const createFinishedGood = async (req, res) => {
       other_specification,
       rate_per_unit: mongoose.Types.Decimal128.fromString(rate_per_unit.toString()),
       base_price: mongoose.Types.Decimal128.fromString(base_price.toString()),
+      gst_slab:gst_slab,
       units: 0,
     });
 

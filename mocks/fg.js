@@ -24,11 +24,16 @@ export const insertFinishedGoods = async () => {
     const finishedGoodsToInsert = [];
 
     rows.forEach((row) => {
-      const {model, power, ratio, type,  MODEL_NUMBER,base_price, ...others} = row;
+      const {model, power, ratio, type,  MODEL_NUMBER,base_price, gst_slab,...others} = row;
       let sanitizedBasePrice = String(base_price)
       .replace(/[^0-9.]/g, '')    // Keep only numbers and dots
       .replace(/^\.*/, '')        // Remove leading dots
       .replace(/\.+$/, '')        // Remove trailing dots
+      .trim();
+      let sanitizedGstSlab = String(gst_slab)
+      .replace(/[^0-9.]/g, "")
+      .replace(/^\.*/, "")
+      .replace(/\.+$/, "")
       .trim();
       ["Base (Foot)", "Vertical (Flange)"].forEach((typeVal) => {
         const finishedGood = {
@@ -44,6 +49,7 @@ export const insertFinishedGoods = async () => {
           ],
           rate_per_unit: mongoose.Types.Decimal128.fromString("0"),
           base_price: mongoose.Types.Decimal128.fromString(sanitizedBasePrice),
+          gst_slab:mongoose.Types.Decimal128.fromString((sanitizedGstSlab  || "0")),
           units: 0,
         };
 
