@@ -101,3 +101,15 @@ export const getFgModelNumber = (fg) => {
 };
 
 export const getModelNumber = (model_id) => `MA${model_id}`;
+
+export const formatDateTime = (date) => {
+  if (!date) return null;
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(date));
+};

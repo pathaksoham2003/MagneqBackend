@@ -3,7 +3,7 @@ import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import { calculateTaxes } from "../utils/taxCalculator.js";
 import Customers from "../models/Customers.js";
-import { getFgModelNumber } from "../utils/helper.js";
+import { formatDateTime, getFgModelNumber } from "../utils/helper.js";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -212,5 +212,71 @@ export const getInvoicesByCustomer = async (req, res) => {
     res.status(200).json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+export const getInvoiceById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invoice ID is required" });
+    }
+
+    const invoice = await Invoice.findById(id)
+      .populate("sales_id", "sales_order_number")
+      .populate("customer_id")
+      .populate("items.finished_good");
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    const formattedInvoice = {
+      invoice_number: invoice.invoice_number,
+      status: invoice.status,
+      invoice_date: formatDateTime(invoice.invoice_date),
+      due_date: formatDateTime(invoice.due_date),
+      customer: {
+        id: invoice.customer_id?._id,
+        name: invoice.customer_id?.name,
+        email: invoice.customer_id?.email,
+        phone: invoice.customer_id?.phone,
+        address: invoice.customer_id?.address,
+        state: invoice.customer_id?.state,
+        pincode: invoice.customer_id?.pincode,
+      },
+      sales_order: {
+        id: invoice.sales_id?._id,
+        sales_order_number: invoice.sales_id?.sales_order_number,
+      },
+      items: invoice.items.map((item) => ({
+        sales_item: item.sales_item,
+        finished_good: {
+          id: item.finished_good?._id,
+          model: item.finished_good?.model,
+          type: item.finished_good?.type,
+          ratio: item.finished_good?.ratio,
+          power: item.finished_good?.power,
+        },
+        description: item.description,
+        invoiced_quantity: item.invoiced_quantity,
+        rate_per_unit: Number(item.rate_per_unit),
+        invoiced_amount: Number(item.invoiced_amount),
+        taxes: item.taxes.map((t) => ({
+          type: t.type,
+          percentage: Number(t.percentage),
+          amount: Number(t.amount),
+        })),
+        total_with_tax: Number(item.total_with_tax),
+      })),
+      total_invoice_amount: Number(invoice.total_invoice_amount),
+      createdAt: formatDateTime(invoice.createdAt),
+    };
+
+    res.json(formattedInvoice);
+  } catch (error) {
+    console.error("Error fetching invoice:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
