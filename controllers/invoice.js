@@ -215,7 +215,7 @@ export const getInvoicesByCustomer = async (req, res) => {
   }
 };
 
-export const getInvoiceById = async (req, res) => {
+export const getInvoiceById = async (req, res) => { 
   try {
     const { id } = req.params;
 
@@ -223,20 +223,23 @@ export const getInvoiceById = async (req, res) => {
       return res.status(400).json({ message: "Invoice ID is required" });
     }
 
-    const invoice = await Invoice.findById(id)
+    const invoiceDoc = await Invoice.findById(id)
       .populate("sales_id", "sales_order_number")
       .populate("customer_id")
       .populate("items.finished_good");
 
-    if (!invoice) {
+    if (!invoiceDoc) {
       return res.status(404).json({ message: "Invoice not found" });
     }
+
+    // convert to plain object
+    const invoice = invoiceDoc.toObject();
 
     const formattedInvoice = {
       invoice_number: invoice.invoice_number,
       status: invoice.status,
-      invoice_date: formatDateTime(invoice.invoice_date),
-      due_date: formatDateTime(invoice.due_date),
+      invoice_date: invoice.invoice_date ? formatDateTime(invoice.invoice_date) : null,
+      due_date: invoice.due_date ? formatDateTime(invoice.due_date) : null,
       customer: {
         id: invoice.customer_id?._id,
         name: invoice.customer_id?.name,
@@ -261,17 +264,17 @@ export const getInvoiceById = async (req, res) => {
         },
         description: item.description,
         invoiced_quantity: item.invoiced_quantity,
-        rate_per_unit: Number(item.rate_per_unit),
-        invoiced_amount: Number(item.invoiced_amount),
+        rate_per_unit: item.rate_per_unit ? Number(item.rate_per_unit) : 0,
+        invoiced_amount: item.invoiced_amount ? Number(item.invoiced_amount) : 0,
         taxes: item.taxes.map((t) => ({
           type: t.type,
-          percentage: Number(t.percentage),
-          amount: Number(t.amount),
+          percentage: t.percentage ? Number(t.percentage) : 0,
+          amount: t.amount ? Number(t.amount) : 0,
         })),
-        total_with_tax: Number(item.total_with_tax),
+        total_with_tax: item.total_with_tax ? Number(item.total_with_tax) : 0,
       })),
-      total_invoice_amount: Number(invoice.total_invoice_amount),
-      createdAt: formatDateTime(invoice.createdAt),
+      total_invoice_amount: invoice.total_invoice_amount ? Number(invoice.total_invoice_amount) : 0,
+      createdAt: invoice.createdAt ? formatDateTime(invoice.createdAt) : null,
     };
 
     res.json(formattedInvoice);
