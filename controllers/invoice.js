@@ -26,8 +26,16 @@ export const createInvoice = async (req, res) => {
       const fg = await FinishedGoods.findById(fg_id);
       if (!fg) return res.status(404).json({ message: `Finished good not found: ${fg_id}` });
 
-      // base values
-      const rate = parseFloat(fg.rate_per_unit.toString());
+      // 🔹 Get the salesItem entry to pick its rate_per_unit
+      const salesItem = sales.finished_goods.find(
+        (item) => item.finished_good.toString() === fg_id.toString()
+      );
+      if (!salesItem) {
+        return res.status(400).json({ message: `Finished good not part of this sales order: ${fg_id}` });
+      }
+
+      // Use rate from SalesItem instead of FinishedGoods
+      const rate = parseFloat(salesItem.rate_per_unit.toString());
       const gstRate = parseFloat(fg.gst_slab.toString());
       const amount = rate * quantity;
 
@@ -44,7 +52,7 @@ export const createInvoice = async (req, res) => {
         });
         totalWithTax += taxAmount;
       } else {
-        // CGST + SGST (split equally)
+        // CGST + SGST
         const halfRate = gstRate / 2;
         const halfAmount = (amount * halfRate) / 100;
         taxEntries.push({
@@ -63,11 +71,11 @@ export const createInvoice = async (req, res) => {
       totalInvoiceAmount += totalWithTax;
 
       processedItems.push({
-        sales_item: fg_id, // refer to FG inside sales
+        sales_item: fg_id,
         finished_good: fg._id,
         description: `${fg.model} ${fg.type} ${fg.ratio} ${fg.power}`,
         invoiced_quantity: quantity,
-        rate_per_unit: rate,
+        rate_per_unit: rate, // ✅ from Sales, not FG
         invoiced_amount: amount,
         taxes: taxEntries,
         total_with_tax: totalWithTax,
