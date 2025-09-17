@@ -123,3 +123,24 @@ export const getAllDeliveries = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getDeliveryById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const delivery = await DeliveryDetails.findById(id)
+      .populate("invoices", "invoice_number") // ✅ only pick invoice_number
+      .select(
+        "invoices from to description lr_number transport_details dispatched_by dispatched_at createdAt updatedAt"
+      );
+
+    if (!delivery) {
+      return res.status(404).json({ message: "Delivery not found" });
+    }
+
+    return res.status(200).json(delivery);
+  } catch (err) {
+    console.error("Error fetching delivery:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
