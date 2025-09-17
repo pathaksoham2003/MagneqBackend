@@ -10,8 +10,10 @@ import {
   updateSaleStatus,
   saleAmountRecieved,
   getTopStats,
+  getSalesOfCustomer,
+  getFgBySalesId
 } from "../controllers/sales.js";
-import {authenticate} from "../middlewares/authMiddleware.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -253,9 +255,11 @@ router.patch("/:id/reject", authenticate, rejectSale);
  *                 total_items:
  *                   type: integer
  *                   example: 1
- */
+*/
 router.get("/", authenticate, getAllSales);
 
+router.get("/customer/:customerId", getSalesOfCustomer);
+router.get("/finished-goods/:salesId", getFgBySalesId);
 /**
  * @swagger
  * /api/sales/{id}:
@@ -271,7 +275,7 @@ router.get("/", authenticate, getAllSales);
  *     responses:
  *       200:
  *         description: Sale found
- */
+*/
 router.get("/:id", getSaleById);
 
 /**
@@ -412,5 +416,6 @@ router.patch("/:id/status", updateSaleStatus);
  *         description: Server error
  */
 router.patch("/:id/recievedAmt", saleAmountRecieved);
+
 
 export default router;

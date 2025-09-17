@@ -1,9 +1,8 @@
 import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
-import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
-import mongoose from "mongoose";
-import {subMonths, startOfMonth, endOfMonth} from "date-fns";
+import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
+import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 export const getTopStats = async (req, res) => {
   try {
@@ -35,24 +34,24 @@ export const getTopStats = async (req, res) => {
       Sales.aggregate([
         {
           $match: {
-            createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd},
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
             status: {
               $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"],
             },
           },
         },
-        {$group: {_id: null, total: {$sum: "$total_amount"}}},
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
       Sales.aggregate([
         {
           $match: {
-            createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd},
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
             status: {
               $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"],
             },
           },
         },
-        {$group: {_id: null, total: {$sum: "$total_amount"}}},
+        { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
 
       // Outstanding Amount (current & previous month)
@@ -60,31 +59,31 @@ export const getTopStats = async (req, res) => {
         {
           $project: {
             createdAt: 1,
-            outstanding: {$subtract: ["$total_amount", "$recieved_amount"]},
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
           },
         },
         {
           $match: {
-            createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd},
-            outstanding: {$gt: 0},
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            outstanding: { $gt: 0 },
           },
         },
-        {$group: {_id: null, total: {$sum: "$outstanding"}}},
+        { $group: { _id: null, total: { $sum: "$outstanding" } } },
       ]),
       Sales.aggregate([
         {
           $project: {
             createdAt: 1,
-            outstanding: {$subtract: ["$total_amount", "$recieved_amount"]},
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
           },
         },
         {
           $match: {
-            createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd},
-            outstanding: {$gt: 0},
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            outstanding: { $gt: 0 },
           },
         },
-        {$group: {_id: null, total: {$sum: "$outstanding"}}},
+        { $group: { _id: null, total: { $sum: "$outstanding" } } },
       ]),
 
       // Due Payment Count (current & previous month)
@@ -92,31 +91,31 @@ export const getTopStats = async (req, res) => {
         {
           $project: {
             createdAt: 1,
-            outstanding: {$subtract: ["$total_amount", "$recieved_amount"]},
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
           },
         },
         {
           $match: {
-            createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd},
-            outstanding: {$ne: 0},
+            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+            outstanding: { $ne: 0 },
           },
         },
-        {$count: "total"},
+        { $count: "total" },
       ]),
       Sales.aggregate([
         {
           $project: {
             createdAt: 1,
-            outstanding: {$subtract: ["$total_amount", "$recieved_amount"]},
+            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
           },
         },
         {
           $match: {
-            createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd},
-            outstanding: {$ne: 0},
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            outstanding: { $ne: 0 },
           },
         },
-        {$count: "total"},
+        { $count: "total" },
       ]),
     ]);
 
@@ -153,7 +152,7 @@ export const getTopStats = async (req, res) => {
     });
   } catch (err) {
     console.error("getTopStats error:", err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -165,14 +164,14 @@ export const createSale = async (req, res) => {
       created_by: req.user.id,
     };
     if (req.user.role == "CUSTOMER") {
-      saleData = {...saleData, customer_created_by: req.user.id};
+      saleData = { ...saleData, customer_created_by: req.user.id };
     }
 
     let totalAmount = 0;
     const updatedFinishedGoods = [];
 
     for (const item of saleData.finished_goods) {
-      const {model, type, ratio, power, rate_per_unit, quantity} = item;
+      const { model, type, ratio, power, rate_per_unit, quantity } = item;
 
 
       const finishedGood = await FinishedGoods.findOne({
@@ -206,27 +205,27 @@ export const createSale = async (req, res) => {
     const sale = new Sales(saleData);
     const savedSale = await sale.save();
 
-    res.status(201).json({sale: savedSale});
+    res.status(201).json({ sale: savedSale });
   } catch (err) {
     console.error("Error in createSale:", err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 // export const
 export const approveSale = async (req, res) => {
   try {
-    const {id} = req.params;
-    const {finished_goods} = req.body;
+    const { id } = req.params;
+    const { finished_goods } = req.body;
     const sale = await Sales.findById(id);
 
     if (!sale) {
-      return res.status(404).json({error: "Sale not found"});
+      return res.status(404).json({ error: "Sale not found" });
     }
 
     if (sale.status !== "UN_APPROVED") {
       return res
         .status(400)
-        .json({error: "Sale is already approved or processed"});
+        .json({ error: "Sale is already approved or processed" });
     }
 
     // If rates are provided, update them before approval
@@ -285,30 +284,30 @@ export const approveSale = async (req, res) => {
 
     res
       .status(200)
-      .json({message: "Sale approved", sale, productions: productionRecords});
+      .json({ message: "Sale approved", sale, productions: productionRecords });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 // Add a rejectSale endpoint
 export const rejectSale = async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
     const sale = await Sales.findById(id);
     if (!sale) {
-      return res.status(404).json({error: "Sale not found"});
+      return res.status(404).json({ error: "Sale not found" });
     }
     if (sale.status !== "UN_APPROVED") {
-      return res.status(400).json({error: "Sale is already processed"});
+      return res.status(400).json({ error: "Sale is already processed" });
     }
     sale.approved_reject_by = req.user.user_name;
     sale.status = "CANCELLED";
     sale.updated_at = new Date();
     await sale.save();
-    res.status(200).json({message: "Sale rejected", sale});
+    res.status(200).json({ message: "Sale rejected", sale });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -318,18 +317,18 @@ export const getAllSales = async (req, res) => {
     const PAGE_SIZE = 10;
     const searchOrderId = req.query.search ? parseInt(req.query.search) : null;
 
-    const query = searchOrderId ? {order_id: searchOrderId} : {};
+    const query = searchOrderId ? { order_id: searchOrderId } : {};
 
     if (req.user?.role === "CUSTOMER") {
       query.customer_name = { $regex: `^${req.user.name}$`, $options: 'i' };
       // query.customer_created_by = req.user.id;
-    } else if (req.user?.role === "SALES"){
+    } else if (req.user?.role === "SALES") {
       // query.created_by = new mongoose.Types.ObjectId(req.user.id)
     }
     const totalCount = await Sales.countDocuments(query);
 
     const sales = await Sales.find(query)
-      .sort({createdAt: -1})
+      .sort({ createdAt: -1 })
       .skip((pageNo - 1) * PAGE_SIZE)
       .limit(PAGE_SIZE)
       .populate({
@@ -376,7 +375,7 @@ export const getAllSales = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -404,7 +403,7 @@ export const getSaleById = async (req, res) => {
         sale.customer_created_by?.user_name ||
         "N / A",
       [`${sale.status == "CANCELLED" ? "Rejected by" : "Approved by"}`]:
-        sale?.approved_reject_by ||" N / A",
+        sale?.approved_reject_by || " N / A",
       "Total Price": Number(sale.total_amount),
       "Recieved Amount": Number(sale.recieved_amount),
       Status: sale.status,
@@ -417,25 +416,25 @@ export const getSaleById = async (req, res) => {
         finished_good: getFgModelNumber(item.finished_good),
         rate_per_unit: Number(item.rate_per_unit),
         item_total_price: Number(item.item_total_price),
-        base_price :Number(item.finished_good.base_price),
+        base_price: Number(item.finished_good.base_price),
         status: item.status,
       };
     });
 
-    if (!sale) return res.status(404).json({message: "Sale not found"});
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
     res.status(200).json({
       headerLevelData,
-      itemLevelData: {header, items: finishedGoods},
+      itemLevelData: { header, items: finishedGoods },
     });
   } catch (err) {
     console.log(err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const updateSale = async (req, res) => {
   try {
-    let updateData = {...req.body};
+    let updateData = { ...req.body };
 
     if (updateData.finished_goods) {
       let totalAmount = 0;
@@ -460,53 +459,53 @@ export const updateSale = async (req, res) => {
       .populate("finished_goods.finished_good")
       .populate("created_by");
 
-    if (!updated) return res.status(404).json({message: "Sale not found"});
+    if (!updated) return res.status(404).json({ message: "Sale not found" });
     res.status(200).json(updated);
   } catch (err) {
-    res.status(400).json({error: err.message});
+    res.status(400).json({ error: err.message });
   }
 };
 
 export const deleteSale = async (req, res) => {
   try {
     const deleted = await Sales.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({message: "Sale not found"});
-    res.status(200).json({message: "Sale deleted"});
+    if (!deleted) return res.status(404).json({ message: "Sale not found" });
+    res.status(200).json({ message: "Sale deleted" });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const updateSaleStatus = async (req, res) => {
   try {
-    const {status} = req.body;
+    const { status } = req.body;
     if (!status) {
-      return res.status(400).json({message: "Status is required"});
+      return res.status(400).json({ message: "Status is required" });
     }
     const sale = await Sales.findByIdAndUpdate(
       req.params.id,
-      {status},
-      {new: true}
+      { status },
+      { new: true }
     );
-    if (!sale) return res.status(404).json({message: "Sale not found"});
-    res.status(200).json({message: "Status updated"});
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+    res.status(200).json({ message: "Status updated" });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const saleAmountRecieved = async (req, res) => {
   try {
-    const {recieved_amt} = req.body;
+    const { recieved_amt } = req.body;
     if (!recieved_amt)
-      return res.status(400).json({message: "Amount is required"});
+      return res.status(400).json({ message: "Amount is required" });
 
     const sale = await Sales.findById(req.params.id, {
       total_amount: 1,
       recieved_amount: 1,
     });
 
-    if (!sale) return res.status(404).json({message: "Sale not Found"});
+    if (!sale) return res.status(404).json({ message: "Sale not Found" });
 
     const updatedAmount = Number(sale.recieved_amount) + Number(recieved_amt);
 
@@ -518,8 +517,67 @@ export const saleAmountRecieved = async (req, res) => {
 
     sale.recieved_amount = updatedAmount;
     await sale.save();
-    return res.status(200).json({message: "Amount updated", sale});
+    return res.status(200).json({ message: "Amount updated", sale });
   } catch (err) {
-    return res.status(500).json({message: "Internal server error"});
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getSalesOfCustomer = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    if (!customerId) {
+      return res.status(400).json({ message: "Customer ID is required" });
+    }
+
+    // fetch sales with populated finished goods
+    const salesOrders = await Sales.find({ created_for: customerId })
+      .populate("finished_goods.finished_good");
+
+    // transform data for frontend
+    const formatted = salesOrders.map((order) => {
+      const modelNumbers = (order.finished_goods || [])
+        .map((item) => getFgModelNumber(item.finished_good))
+        .join(", ");
+
+      return {
+        id: order._id,
+        order_id: `SO-${order.order_id}`,
+        models: modelNumbers,
+      };
+    });
+
+    res.status(200).json(formatted);
+  } catch (err) {
+    console.error("Error fetching sales orders:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getFgBySalesId = async (req, res) => {
+  try {
+    const { salesId } = req.params;
+    console.log(salesId)
+    if (!salesId) {
+      return res.status(400).json({ message: "salesId is required" });
+    }
+
+    const sales = await Sales.findById(salesId)
+      .populate("finished_goods.finished_good");
+
+    if (!sales) {
+      return res.status(404).json({ message: "Sales order not found" });
+    }
+
+    const formattedFgs = sales.finished_goods.map((fg) => ({
+      id: fg.finished_good?._id,
+      model_number: getFgModelNumber(fg.finished_good),
+    }));
+
+    return res.status(200).json(formattedFgs);
+  } catch (error) {
+    console.error("Error fetching FG by salesId:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

@@ -8,6 +8,8 @@
       "sidebar": [
         "create_order",
         "track_order",
+        "invoice",
+        "delivery",
         "ledger",
         "quality"
       ],
@@ -68,6 +70,8 @@
         "sales",
         "production",
         "store",
+        "invoice",
+        "delivery",
         "purchase",
         "quality"
       ],

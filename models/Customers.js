@@ -3,6 +3,8 @@ import mongoose from "../utils/db.js";
 const customerSchema = new mongoose.Schema({
   name: String,
   address:String,
+  pin_code:String,
+  state:String,
   gst_no:String,
   password: String,
   user_name: String,

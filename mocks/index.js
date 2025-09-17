@@ -6,7 +6,7 @@ import RawMaterial from "../models/RawMaterials.js";
 import User from "../models/User.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import RoutePermission from "../models/RoutePermission.js";
-import {insertFinishedGoods} from "./fg.js";
+import { insertFinishedGoods } from "./fg.js";
 import Production from "../models/Production.js";
 import Quality from "../models/Quality.js";
 import Sales from "../models/Sales.js";
@@ -55,7 +55,7 @@ const generateRawMaterialsC = async () => {
   try {
     const workbook = XLSX.readFile("./mocks/data/rawMaterialC.csv");
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
     const records = [];
 
@@ -66,7 +66,7 @@ const generateRawMaterialsC = async () => {
             class_type: "C",
             name: type.trim(),
             type: value.toString().trim(),
-            quantity: {processed: 0},
+            quantity: { processed: 0 },
             expiry_date: new Date("2026-12-31"), // default/fixed expiry
             other_specification: {
               set_type: "Standard Kit",
@@ -108,7 +108,7 @@ const seedUsers = async () => {
         user.password = await bcrypt.hash(user.password, 10);
       }
 
-      const {permissions, role} = user;
+      const { permissions, role } = user;
 
       if (permissions && role) {
         if (!routePermissionsMap[role]) {
@@ -209,7 +209,9 @@ const seedCustomers = async () => {
           address: company.address,
           gst_no: company.gst_no,
           user_name,
-          phone:company.phone,
+          pin_code:company.pin_code,
+          state:company.state,
+          phone: company.phone,
           password: await bcrypt.hash(password, 10),
           role: "CUSTOMER",
         };
@@ -247,10 +249,10 @@ const seedCustomers = async () => {
 };
 const seedVendors = async () => {
   const mockVendors = [
-  { name: "Apex Steel Supplies", phone: 9876543210 },
-  { name: "MechCraft Components", phone: 9123456789 },
-  { name: "Orbit Precision Tools", phone: 9988776655 }
-];
+    { name: "Apex Steel Supplies", phone: 9876543210 },
+    { name: "MechCraft Components", phone: 9123456789 },
+    { name: "Orbit Precision Tools", phone: 9988776655 }
+  ];
   try {
     await Vendor.deleteMany({});
     await Vendor.insertMany(mockVendors);
@@ -258,7 +260,7 @@ const seedVendors = async () => {
   } catch (err) {
     console.error("❌ Error seeding vendors:", err.message);
   }
-}; 
+};
 
 const flushAll = async () => {
   await Notification.deleteMany({});
@@ -280,7 +282,7 @@ const runSeeder = async () => {
     const rawMaterials = await generateRawMaterials();
     await insertFinishedGoods();
     await seedUsers();
-    await seedNotifications(); 
+    await seedNotifications();
     await seedCustomers();
     await seedVendors();
   } catch (err) {

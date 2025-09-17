@@ -51,7 +51,7 @@ export const getUsers = async (req, res) => {
 
 export const createUser = async (req, res) => {
   try {
-    const {name, role, user_name, password, gst_no, address, phone} = req.body;
+    const {name, role, user_name, password,state,pin_code, gst_no, address, phone} = req.body;
 
     if (role == "SUPPLIER") {
       if (!name || !phone) {
@@ -78,6 +78,8 @@ export const createUser = async (req, res) => {
         user_name,
         gst_no,
         phone,
+        pin_code,
+        state:state.toUpperCase(),
         address,
         password: hashedPassword,
         created_at: new Date(),

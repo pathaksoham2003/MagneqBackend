@@ -21,10 +21,12 @@ import purchaseOrderRoutes from "./routes/purchaseOrders.js";
 import qualityRoutes from "./routes/quality.js";
 import finishedGoodsRoutes from "./routes/finishedGoods.js";
 import salesRoutes from "./routes/sales.js";
+import invoiceRoutes from "./routes/invoice.js";
 import productionRoutes from "./routes/production.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import manageRoutes from "./routes/manage.js";
 import notificationRoutes from "./routes/notification.js";
+import deliveryRoutes from "./routes/delivery.js";
 
 dotenv.config();
 
@@ -42,6 +44,8 @@ app.use("/api/purchase_order", purchaseOrderRoutes);
 app.use("/api/quality", qualityRoutes);
 app.use("/api/finished_goods", finishedGoodsRoutes);
 app.use("/api/sales", salesRoutes);
+app.use("/api/invoice", invoiceRoutes);
+app.use("/api/delivery", deliveryRoutes);
 app.use("/api/production", productionRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/manage", manageRoutes);
