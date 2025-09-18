@@ -3,7 +3,7 @@ import Purchase from "../models/Purchase.js";
 import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 
-import {startOfMonth, endOfMonth, subMonths} from "date-fns";
+import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 
 export const getTopStats = async (req, res) => {
   try {
@@ -27,17 +27,21 @@ export const getTopStats = async (req, res) => {
     ] = await Promise.all([
       // Sales (only certain statuses)
       Sales.aggregate([
-        { $match: {
+        {
+          $match: {
             createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED","INPROCESS"] }
-        } },
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] }
+          }
+        },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
       Sales.aggregate([
-        { $match: {
-            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },  
-            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED","INPROCESS"] }
-        } },
+        {
+          $match: {
+            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+            status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] }
+          }
+        },
         { $group: { _id: null, total: { $sum: "$total_amount" } } },
       ]),
 
@@ -57,16 +61,16 @@ export const getTopStats = async (req, res) => {
 
       // Production Orders
       Production.countDocuments({
-        createdAt: {$gte: currentMonthStart, $lte: currentMonthEnd},
-        status: {$ne: "READY"},
+        createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+        status: { $ne: "READY" },
       }),
       Production.countDocuments({
-        createdAt: {$gte: prevMonthStart, $lte: prevMonthEnd},
-        status: {$ne: "READY"},
+        createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+        status: { $ne: "READY" },
       }),
 
       // FG Inventory (total units, not date-based)
-      FinishedGoods.aggregate([{$group: {_id: null, total: {$sum: "$units"}}}]),
+      FinishedGoods.aggregate([{ $group: { _id: null, total: { $sum: "$units" } } }]),
     ]);
 
     // Extract values or fallback
@@ -102,15 +106,20 @@ export const getTopStats = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
+
+export const getTopCustomerStats = async (req, res) => {
+  const { id } = req.params;
+
+}
 
 export const getSalesTable = async (req, res) => {
   try {
     const sales = await Sales.find()
       .populate("finished_goods.finished_good")
-      .sort({createdAt: -1})
+      .sort({ createdAt: -1 })
       .limit(10);
 
     const salesTable = sales.flatMap((sale) =>
@@ -128,7 +137,7 @@ export const getSalesTable = async (req, res) => {
 
     res.status(200).json(salesTable);
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -178,6 +187,6 @@ export const getSalesStatistics = async (req, res) => {
 
     res.status(200).json(statistics);
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };

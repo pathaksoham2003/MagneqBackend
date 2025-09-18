@@ -11,6 +11,7 @@ const salesItemSchema = new mongoose.Schema(
     },
     rate_per_unit: { type: mongoose.Schema.Types.Decimal128 },
     quantity: Number,
+    invoiced_quantity: { type: Number, default: 0 },
     total_invoiced_quantity: Number,
     item_total_price: { type: mongoose.Schema.Types.Decimal128, default: 0 },
     status: { type: Boolean, default: false },

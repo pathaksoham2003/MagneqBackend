@@ -26,7 +26,7 @@ export const createInvoice = async (req, res) => {
       const fg = await FinishedGoods.findById(fg_id);
       if (!fg) return res.status(404).json({ message: `Finished good not found: ${fg_id}` });
 
-      // 🔹 Get the salesItem entry to pick its rate_per_unit
+      // 🔹 Find salesItem entry
       const salesItem = sales.finished_goods.find(
         (item) => item.finished_good.toString() === fg_id.toString()
       );
@@ -34,7 +34,13 @@ export const createInvoice = async (req, res) => {
         return res.status(400).json({ message: `Finished good not part of this sales order: ${fg_id}` });
       }
 
-      // Use rate from SalesItem instead of FinishedGoods
+      // ✅ Prevent over-invoicing
+      if (salesItem.invoiced_quantity + quantity > salesItem.quantity) {
+        return res.status(400).json({
+          message: `Cannot invoice more than ordered quantity for FG: ${fg_id}`,
+        });
+      }
+
       const rate = parseFloat(salesItem.rate_per_unit.toString());
       const gstRate = parseFloat(fg.gst_slab.toString());
       const amount = rate * quantity;
@@ -43,28 +49,16 @@ export const createInvoice = async (req, res) => {
       let totalWithTax = amount;
 
       if (isInterState) {
-        // IGST only
+        // IGST
         const taxAmount = (amount * gstRate) / 100;
-        taxEntries.push({
-          type: "IGST",
-          percentage: gstRate,
-          amount: taxAmount,
-        });
+        taxEntries.push({ type: "IGST", percentage: gstRate, amount: taxAmount });
         totalWithTax += taxAmount;
       } else {
         // CGST + SGST
         const halfRate = gstRate / 2;
         const halfAmount = (amount * halfRate) / 100;
-        taxEntries.push({
-          type: "CGST",
-          percentage: halfRate,
-          amount: halfAmount,
-        });
-        taxEntries.push({
-          type: "SGST",
-          percentage: halfRate,
-          amount: halfAmount,
-        });
+        taxEntries.push({ type: "CGST", percentage: halfRate, amount: halfAmount });
+        taxEntries.push({ type: "SGST", percentage: halfRate, amount: halfAmount });
         totalWithTax += halfAmount * 2;
       }
 
@@ -75,11 +69,15 @@ export const createInvoice = async (req, res) => {
         finished_good: fg._id,
         description: `${fg.model} ${fg.type} ${fg.ratio} ${fg.power}`,
         invoiced_quantity: quantity,
-        rate_per_unit: rate, // ✅ from Sales, not FG
+        rate_per_unit: rate,
         invoiced_amount: amount,
         taxes: taxEntries,
         total_with_tax: totalWithTax,
       });
+
+      // 🔹 Update invoiced_quantity for tracking
+      salesItem.invoiced_quantity += quantity;
+      salesItem.total_invoiced_quantity = salesItem.invoiced_quantity;
     }
 
     // 3. Calculate due_date = delivery_date + 45 days
@@ -89,7 +87,7 @@ export const createInvoice = async (req, res) => {
       dueDate.setDate(dueDate.getDate() + 45);
     }
 
-    // 4. Create Invoice
+    // 4. Save invoice
     const invoice = await Invoice.create({
       sales_id,
       customer_id,
@@ -97,6 +95,19 @@ export const createInvoice = async (req, res) => {
       due_date: dueDate,
       total_invoice_amount: totalInvoiceAmount,
     });
+
+    // 5. Save updated Sales (with new invoiced quantities)
+    await sales.save();
+
+    // 6. 🔹 Check if ALL items are fully invoiced
+    const allInvoiced = sales.finished_goods.every(
+      (item) => item.invoiced_quantity >= item.quantity
+    );
+
+    if (allInvoiced) {
+      sales.status = "PROCESSED";
+      await sales.save();
+    }
 
     return res.status(201).json(invoice);
   } catch (err) {
@@ -174,6 +185,7 @@ export const getAllInvoices = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 export const getInvoicesBySalesId = async (req, res) => {
   try {
     const { salesId } = req.params;

@@ -26,6 +26,7 @@ import productionRoutes from "./routes/production.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import manageRoutes from "./routes/manage.js";
 import notificationRoutes from "./routes/notification.js";
+import paymentRoutes from "./routes/payment.js";
 import deliveryRoutes from "./routes/delivery.js";
 
 dotenv.config();
@@ -50,6 +51,7 @@ app.use("/api/production", productionRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/manage", manageRoutes);
 app.use("/api/notification",notificationRoutes);
+app.use("/api/payment",paymentRoutes);
 
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 

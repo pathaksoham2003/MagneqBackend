@@ -405,7 +405,6 @@ export const getSaleById = async (req, res) => {
       [`${sale.status == "CANCELLED" ? "Rejected by" : "Approved by"}`]:
         sale?.approved_reject_by || " N / A",
       "Total Price": Number(sale.total_amount),
-      "Recieved Amount": Number(sale.recieved_amount),
       Status: sale.status,
     };
 
@@ -532,7 +531,7 @@ export const getSalesOfCustomer = async (req, res) => {
     }
 
     // fetch sales with populated finished goods
-    const salesOrders = await Sales.find({ created_for: customerId })
+    const salesOrders = await Sales.find({ created_for: customerId, status: { $eq: "INPROCESS" } })
       .populate("finished_goods.finished_good");
 
     // transform data for frontend
@@ -558,7 +557,7 @@ export const getSalesOfCustomer = async (req, res) => {
 export const getFgBySalesId = async (req, res) => {
   try {
     const { salesId } = req.params;
-    console.log(salesId)
+
     if (!salesId) {
       return res.status(400).json({ message: "salesId is required" });
     }
@@ -573,6 +572,7 @@ export const getFgBySalesId = async (req, res) => {
     const formattedFgs = sales.finished_goods.map((fg) => ({
       id: fg.finished_good?._id,
       model_number: getFgModelNumber(fg.finished_good),
+      remaining_quantity: Math.max(0, fg.quantity - (fg.invoiced_quantity || 0)), // 🔹 New field
     }));
 
     return res.status(200).json(formattedFgs);

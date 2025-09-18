@@ -21,6 +21,9 @@ const mockData = JSON.parse(
 import Customers from "../models/Customers.js";
 import companyList from "./customer.js";
 import XLSX from "xlsx";
+import DeliveryDetails from "../models/DeliveryDetails.js";
+import Invoice from "../models/Invoice.js";
+import PaymentRecieval from "../models/PaymentRecieval.js";
 
 const generateRawMaterialsB = async () => {
   const workbook = XLSX.readFile("./mocks/data/rawMaterialB.csv");
@@ -274,6 +277,9 @@ const flushAll = async () => {
   await User.deleteMany({});
   await Customers.deleteMany({});
   await Vendor.deleteMany({});
+  await DeliveryDetails.deleteMany({});
+  await Invoice.deleteMany({});
+  await PaymentRecieval.deleteMany({});
 };
 
 const runSeeder = async () => {

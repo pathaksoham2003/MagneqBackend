@@ -4,6 +4,7 @@ import {
   getTopStats,
   getSalesTable,
   getSalesStatistics,
+  getTopCustomerStats,
 } from "../controllers/dashboard.js";
 
 const router = express.Router();
@@ -26,6 +27,7 @@ const router = express.Router();
  *         description: Dashboard top statistics fetched
  */
 router.get("/top-stats", getTopStats);
+router.get("/customer/:id/top-stats", getTopCustomerStats);
 
 /**
  * @swagger
