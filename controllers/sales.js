@@ -216,6 +216,7 @@ export const approveSale = async (req, res) => {
   try {
     const { id } = req.params;
     const { finished_goods } = req.body;
+    const { createPro } = req.body;
     const sale = await Sales.findById(id);
 
     if (!sale) {
@@ -263,23 +264,25 @@ export const approveSale = async (req, res) => {
 
     const productionRecords = [];
 
-    for (const item of sale.finished_goods) {
-      const fg = await FinishedGoods.findById(item.finished_good);
-      if (!fg) continue;
+    if (createPro) {
+      for (const item of sale.finished_goods) {
+        const fg = await FinishedGoods.findById(item.finished_good);
+        if (!fg) continue;
 
-      const production = new Production({
-        order_id: sale.order_id,
-        finished_good: fg._id,
-        customer_name: sale.customer_name,
-        quantity: item.quantity,
-        status: "UN_PROCESSED",
-        created_at: new Date(),
-        updated_at: new Date(),
-        isProduction: false,
-      });
+        const production = new Production({
+          order_id: sale.order_id,
+          finished_good: fg._id,
+          customer_name: sale.customer_name,
+          quantity: item.quantity,
+          status: "UN_PROCESSED",
+          created_at: new Date(),
+          updated_at: new Date(),
+          isProduction: false,
+        });
 
-      await production.save();
-      productionRecords.push(production);
+        await production.save();
+        productionRecords.push(production);
+      }
     }
 
     res

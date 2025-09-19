@@ -101,9 +101,9 @@ export const getPendingProductionOrders = async (req, res) => {
           production.createdAt,
           orderDetails,
           production.quantity,
-          production.status === "UN_PROCESSED"
-            ? statusDetail
-            : production.status,
+          // production.status === "UN_PROCESSED"
+          //   ? statusDetail
+          //   : production.status,
         ],
       };
     });
@@ -115,7 +115,7 @@ export const getPendingProductionOrders = async (req, res) => {
         "Date of Creation",
         "Order Details",
         "Quantity",
-        "Status",
+        // "Status",
       ],
       item: items,
       page_no: page,
@@ -176,6 +176,8 @@ export const getProductionDetails = async (req, res) => {
         ratio: finishedGood.ratio,
       },
       quantity: production.quantity,
+      start_quantity: production.start_quantity,
+      ready_quantity: production.ready_quantity,
       status: production.status,
       created_at: production.created_at,
       updated_at: production.updated_at,
@@ -313,5 +315,96 @@ export const makeReady = async (req, res) => {
   } catch (err) {
     console.error("Error in makeReady:", err);
     return res.status(500).json({ error: err.message });
+  }
+};
+
+export const getTransitionDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const production = await Production.findById(id);
+
+    if (!production) {
+      return res.status(404).json({ message: "Production not found" });
+    }
+
+    res.json({
+      quantity: production.quantity,
+      start_quantity: production.start_quantity,
+      ready_quantity: production.ready_quantity,
+      status: production.status,
+    });
+  } catch (err) {
+    console.error("Error in getTransitionDetails:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// PUT transition details
+export const updateTransitionDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { from, qty } = req.body; // from = "quantity" | "start_quantity"
+
+    const production = await Production.findById(id);
+    if (!production) {
+      return res.status(404).json({ message: "Production not found" });
+    }
+
+    if (!["quantity", "start_quantity"].includes(from)) {
+      return res.status(400).json({ message: "Invalid from stage" });
+    }
+
+    if (qty <= 0 || qty > production[from]) {
+      return res.status(400).json({ message: "Invalid transition quantity" });
+    }
+
+    let to;
+    if (from === "quantity") to = "start_quantity";
+    if (from === "start_quantity") to = "ready_quantity";
+
+    // ✅ Check raw materials only if moving from "quantity" → "start_quantity"
+    if (from === "quantity") {
+      const finishedGood = await FinishedGoods.findById(production.finished_good);
+      if (!finishedGood) {
+        return res.status(404).json({ message: "Finished good not found" });
+      }
+
+      for (const rm of finishedGood.raw_materials) {
+        const material = await RawMaterials.findById(rm.raw_material_id);
+        if (!material || typeof material.quantity !== "object") {
+          return res.status(400).json({ message: "Invalid raw material found" });
+        }
+
+        const requiredQty = rm.quantity * qty;
+        const availableQty = material.quantity.processed || 0;
+
+        if (availableQty < requiredQty) {
+          return res.status(400).json({
+            message: `Not enough RM for class ${material.class_type} for ${material.name || "Unnamed Material"}`,
+          });
+        }
+
+        // Deduct processed raw materials
+        material.quantity.processed = availableQty - requiredQty;
+        material.updated_at = new Date();
+        material.markModified("quantity");
+        await material.save();
+      }
+    }
+
+    // ✅ Update production quantities
+    production[from] -= qty;
+    production[to] += qty;
+    production.updated_at = new Date();
+
+    await production.save();
+
+    return res.json({
+      message: `Successfully moved ${qty} from ${from} → ${to}`,
+      production,
+    });
+  } catch (err) {
+    console.error("Error in updateTransitionDetails:", err);
+    res.status(500).json({ error: err.message });
   }
 };

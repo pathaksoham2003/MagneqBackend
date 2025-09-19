@@ -8,6 +8,8 @@ const productionSchema = new mongoose.Schema(
     pro_id:{type: Number, unique: true},
     finished_good: {type: mongoose.Schema.Types.ObjectId, ref: "FinishedGoods"},
     quantity: {type: Number},
+    start_quantity: {type:Number,default:0},
+    ready_quantity: {type:Number,default:0},
     customer_name: String,
     created_at: Date,
     updated_at: Date,
