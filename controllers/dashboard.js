@@ -2,8 +2,10 @@ import Sales from "../models/Sales.js";
 import Purchase from "../models/Purchase.js";
 import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
+import mongoose from "mongoose";
 
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import PaymentRecieval from "../models/PaymentRecieval.js";
 
 export const getTopStats = async (req, res) => {
   try {
@@ -111,9 +113,72 @@ export const getTopStats = async (req, res) => {
 };
 
 export const getTopCustomerStats = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-}
+    // Validate if the provided ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid customer ID format" 
+      });
+    }
+
+    const customerId = mongoose.Types.ObjectId.createFromHexString(id);
+
+    // Get all sales for the customer (only need total_amount)
+    const customerSales = await Sales.find({ 
+      created_for: customerId 
+    })
+    .select('total_amount');
+    // Get all payment receivals for the customer
+    const customerPayments = await PaymentRecieval.find({ 
+      customer: customerId 
+    }).select('amount date_of_recieval');
+    
+    // Calculate total amount to be paid (sum of all sales total_amount)
+    const totalAmountToBePaid = customerSales.reduce((sum, sale) => {
+      const amount = sale.total_amount ? parseFloat(sale.total_amount.toString()) : 0;
+      return sum + amount;
+    }, 0);
+    
+    // Calculate total payment received ONLY from PaymentRecieval collection
+    const totalPaymentReceived = customerPayments.reduce((sum, payment) => {
+      const amount = payment.amount ? parseFloat(payment.amount.toString()) : 0;
+      return sum + amount;
+    }, 0);
+
+    // Calculate overdue payment (amount still to be paid)
+    const overduePayment = Math.max(0, totalAmountToBePaid - totalPaymentReceived);
+
+    // Calculate overpaid amount (if customer paid more than required)
+    const overpaidAmount = Math.max(0, totalPaymentReceived - totalAmountToBePaid);
+
+    // Additional statistics
+    const totalOrders = customerSales.length;
+
+    // Average order value
+    const averageOrderValue = totalOrders > 0 ? totalAmountToBePaid / totalOrders : 0;
+
+    const customerStats = {
+      totalOrderAmount: parseFloat(totalAmountToBePaid.toFixed(2)),
+      totalPaymentReceived: parseFloat(totalPaymentReceived.toFixed(2)),
+      totalOverheadPayment: parseFloat(overpaidAmount.toFixed(2)),
+      totalOverduePayment: parseFloat(overduePayment.toFixed(2)),
+      totalOrdersPlaced: totalOrders
+    };
+
+    res.status(200).json(customerStats);
+
+  } catch (error) {
+    console.error('Error fetching customer stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while fetching customer statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
 
 export const getSalesTable = async (req, res) => {
   try {

@@ -212,8 +212,8 @@ const seedCustomers = async () => {
           address: company.address,
           gst_no: company.gst_no,
           user_name,
-          pin_code:company.pin_code,
-          state:company.state,
+          pin_code: company.pin_code,
+          state: company.state,
           phone: company.phone,
           password: await bcrypt.hash(password, 10),
           role: "CUSTOMER",
@@ -230,7 +230,7 @@ const seedCustomers = async () => {
     if (!existingPermission) {
       await RoutePermission.create({
         role: "CUSTOMER",
-        sidebar: ["create_order", "track_order", "quality"],
+        sidebar: ["customer", "create_order", "track_order", "quality"],
         support: ["chat", "email"],
         allowed_routes: [
           "/create_order",
