@@ -173,7 +173,6 @@ export const createSale = async (req, res) => {
     for (const item of saleData.finished_goods) {
       const { model, type, ratio, power, rate_per_unit, quantity } = item;
 
-
       const finishedGood = await FinishedGoods.findOne({
         model,
         type,
@@ -273,6 +272,7 @@ export const approveSale = async (req, res) => {
           order_id: sale.order_id,
           finished_good: fg._id,
           customer_name: sale.customer_name,
+          order_quantity:item.quantity,
           quantity: item.quantity,
           status: "UN_PROCESSED",
           created_at: new Date(),
