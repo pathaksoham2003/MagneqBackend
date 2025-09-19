@@ -175,6 +175,7 @@ export const getProductionDetails = async (req, res) => {
         type: finishedGood.type,
         ratio: finishedGood.ratio,
       },
+      order_quantity:production.order_quantity,
       quantity: production.quantity,
       start_quantity: production.start_quantity,
       ready_quantity: production.ready_quantity,
