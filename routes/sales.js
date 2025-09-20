@@ -3,10 +3,9 @@ import {
   createSale,
   getAllSales,
   getSaleById,
-  updateSale,
-  deleteSale,
   approveSale,
   rejectSale,
+  updateSalesOrder,
   updateSaleStatus,
   saleAmountRecieved,
   getTopStats,
@@ -300,25 +299,25 @@ router.get("/:id", getSaleById);
  *       200:
  *         description: Sale updated successfully
  */
-router.put("/:id", updateSale);
+router.put("/:id", updateSalesOrder);
 
-/**
- * @swagger
- * /api/sales/{id}:
- *   delete:
- *     summary: Delete a sale
- *     tags: [Sales]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Sale deleted successfully
- */
-router.delete("/:id", deleteSale);
+// /**
+//  * @swagger
+//  * /api/sales/{id}:
+//  *   delete:
+//  *     summary: Delete a sale
+//  *     tags: [Sales]
+//  *     parameters:
+//  *       - in: path
+//  *         name: id
+//  *         required: true
+//  *         schema:
+//  *           type: string
+//  *     responses:
+//  *       200:
+//  *         description: Sale deleted successfully
+//  */
+// router.delete("/:id", deleteSale);
 
 /**
  * @swagger

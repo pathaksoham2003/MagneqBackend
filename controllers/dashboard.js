@@ -125,8 +125,8 @@ export const getTopCustomerStats = async (req, res) => {
     }
 
     const customerId = mongoose.Types.ObjectId.createFromHexString(id);
-
     // Get all sales for the customer (only need total_amount)
+    console.log(customerId);
     const customerSales = await Sales.find({ 
       created_for: customerId 
     })
