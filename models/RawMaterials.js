@@ -12,11 +12,11 @@ const rawMaterialSchema = new mongoose.Schema({
   },
   quantity: {
     type: mongoose.Schema.Types.Mixed,
-    default: () => ({ processed: 0 }),
+    default: () => ({ processed: 0,rejected:0 }),
   },
   min_quantity: {
     type: Number,
-    default: 0,
+    default: 10,
   },
   name: {
     type: String,

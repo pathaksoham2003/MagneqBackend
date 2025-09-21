@@ -17,6 +17,9 @@ import Purchase from "../models/Purchase.js";
 const mockData = JSON.parse(
   fs.readFileSync(new URL("./rawMaterialA.json", import.meta.url), "utf-8")
 );
+function getRandomBetween8And20() {
+  return Math.floor(Math.random() * (20 - 8 + 1)) + 8;
+}
 
 import Customers from "../models/Customers.js";
 import companyList from "./customer.js";
@@ -40,10 +43,10 @@ const generateRawMaterialsB = async () => {
           name: value.toString().trim(),
           type: column.trim(),
           quantity: {
-            unprocessed: 0,
-            hobbing: 0,
-            ht: 0,
-            processed: 0,
+            unprocessed: getRandomBetween8And20(),
+            hobbing: getRandomBetween8And20(),
+            ht: getRandomBetween8And20(),
+            processed: getRandomBetween8And20(),
           },
         });
       }
@@ -69,7 +72,7 @@ const generateRawMaterialsC = async () => {
             class_type: "C",
             name: type.trim(),
             type: value.toString().trim(),
-            quantity: { processed: 0 },
+            quantity: { processed: getRandomBetween8And20() },
             expiry_date: new Date("2026-12-31"), // default/fixed expiry
             other_specification: {
               set_type: "Standard Kit",

@@ -2,7 +2,7 @@
   "data": [
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 8 },
       "model": "MA102",
       "type": "B",
       "other_specification": {
@@ -13,7 +13,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA128",
       "type": "B",
       "other_specification": {
@@ -24,7 +24,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA142",
       "type": "B",
       "other_specification": {
@@ -35,7 +35,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA162",
       "type": "B",
       "other_specification": {
@@ -46,7 +46,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MB160",
       "type": "B",
       "other_specification": {
@@ -57,7 +57,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA102",
       "type": "V",
       "other_specification": {
@@ -68,7 +68,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA128",
       "type": "V",
       "other_specification": {
@@ -79,7 +79,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA142",
       "type": "V",
       "other_specification": {
@@ -90,7 +90,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MA162",
       "type": "V",
       "other_specification": {
@@ -101,7 +101,7 @@
     },
     {
       "class_type": "A",
-      "quantity": { "processed": 0 },
+      "quantity": { "processed": 10 },
       "model": "MB160",
       "type": "V",
       "other_specification": {
