@@ -9,7 +9,6 @@ export const createInvoice = async (req, res) => {
   try {
     const { sales_id, customer_id, items } = req.body;
 
-    // 1. Fetch Sales & Customer
     const sales = await Sales.findById(sales_id);
     if (!sales) return res.status(404).json({ message: "Sales order not found" });
 
@@ -26,7 +25,6 @@ export const createInvoice = async (req, res) => {
       const fg = await FinishedGoods.findById(fg_id);
       if (!fg) return res.status(404).json({ message: `Finished good not found: ${fg_id}` });
 
-      // 🔹 Find salesItem entry
       const salesItem = sales.finished_goods.find(
         (item) => item.finished_good.toString() === fg_id.toString()
       );

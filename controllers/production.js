@@ -2,24 +2,24 @@ import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import RawMaterials from "../models/RawMaterials.js";
 import Sales from "../models/Sales.js";
-import {getFgModelNumber, getModelNumber} from "../utils/helper.js";
+import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
 
-export const createProductionOrder = async(req,res) => {
-  try{
+export const createProductionOrder = async (req, res) => {
+  try {
     let productionData = {
       ...req.body,
       status: "UN_PROCESSED",
     };
     const productionRecords = [];
     for (let item of productionData.finished_goods) {
-      const {model, type, ratio, power, quantity} = item;
+      const { model, type, ratio, power, quantity } = item;
       const finishedGood = await FinishedGoods.findOne({
         model,
         type,
         ratio,
         power,
       });
-    
+
       if (!finishedGood) {
         return res.status(404).json({
           error: `Finished good not found for model: ${model}, type: ${type}, ratio: ${ratio}, power: ${power}`,
@@ -33,13 +33,18 @@ export const createProductionOrder = async(req,res) => {
         isProduction: true,
       });
       await production.save();
-      productionRecords.push(production);  
+      productionRecords.push(production);
     }
-    res.status(200).json({message:"Production order creted successfully",productions: productionRecords})
-  }catch(err){
-    res.status(500).json({error: err.message});
+    res
+      .status(200)
+      .json({
+        message: "Production order creted successfully",
+        productions: productionRecords,
+      });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-}
+};
 
 export const getPendingProductionOrders = async (req, res) => {
   try {
@@ -48,7 +53,7 @@ export const getPendingProductionOrders = async (req, res) => {
     const search = req.query.search;
 
     const query = {
-      status: {$ne: "READY"},
+      status: { $ne: "READY" },
     };
 
     if (search) {
@@ -70,7 +75,7 @@ export const getPendingProductionOrders = async (req, res) => {
       })
       .skip((page - 1) * limit)
       .limit(limit)
-      .sort({createdAt: -1});
+      .sort({ createdAt: -1 });
 
     const items = productions.map((production) => {
       const fg = production.finished_good;
@@ -124,7 +129,7 @@ export const getPendingProductionOrders = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -134,7 +139,7 @@ export const getProductionDetails = async (req, res) => {
       "finished_good"
     );
     if (!production)
-      return res.status(404).json({message: "Production not found"});
+      return res.status(404).json({ message: "Production not found" });
 
     const finishedGood = production.finished_good;
     const requiredQuantity = production.quantity || 1;
@@ -175,7 +180,7 @@ export const getProductionDetails = async (req, res) => {
         type: finishedGood.type,
         ratio: finishedGood.ratio,
       },
-      order_quantity:production.order_quantity,
+      order_quantity: production.order_quantity,
       quantity: production.quantity,
       start_quantity: production.start_quantity,
       ready_quantity: production.ready_quantity,
@@ -188,35 +193,35 @@ export const getProductionDetails = async (req, res) => {
       class_c: classC,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
 export const startProduction = async (req, res) => {
   try {
-    const {id} = req.params;
+    const { id } = req.params;
 
     const production = await Production.findById(id);
     if (!production) {
-      return res.status(404).json({error: "Production not found"});
+      return res.status(404).json({ error: "Production not found" });
     }
 
     if (production.status !== "UN_PROCESSED") {
       return res
         .status(400)
-        .json({error: "Production must be in UN_PROCESSED state"});
+        .json({ error: "Production must be in UN_PROCESSED state" });
     }
 
     const finishedGood = await FinishedGoods.findById(production.finished_good);
     if (!finishedGood) {
-      return res.status(404).json({error: "Finished good not found"});
+      return res.status(404).json({ error: "Finished good not found" });
     }
 
     // Loop over each raw_material reference manually
     for (const rm of finishedGood.raw_materials) {
       const material = await RawMaterials.findById(rm.raw_material_id);
       if (!material || typeof material.quantity !== "object") {
-        return res.status(400).json({error: "Invalid raw material found"});
+        return res.status(400).json({ error: "Invalid raw material found" });
       }
 
       const classType = material.class_type;
@@ -254,7 +259,7 @@ export const startProduction = async (req, res) => {
     });
   } catch (err) {
     console.error("Start Production Error:", err);
-    res.status(500).json({error: err.message});
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -365,7 +370,9 @@ export const updateTransitionDetails = async (req, res) => {
 
     // ✅ Check raw materials only if moving from "quantity" → "start_quantity"
     if (from === "quantity") {
-      const finishedGood = await FinishedGoods.findById(production.finished_good);
+      const finishedGood = await FinishedGoods.findById(
+        production.finished_good
+      );
       if (!finishedGood) {
         return res.status(404).json({ message: "Finished good not found" });
       }
@@ -373,7 +380,9 @@ export const updateTransitionDetails = async (req, res) => {
       for (const rm of finishedGood.raw_materials) {
         const material = await RawMaterials.findById(rm.raw_material_id);
         if (!material || typeof material.quantity !== "object") {
-          return res.status(400).json({ message: "Invalid raw material found" });
+          return res
+            .status(400)
+            .json({ message: "Invalid raw material found" });
         }
 
         const requiredQty = rm.quantity * qty;
@@ -381,7 +390,9 @@ export const updateTransitionDetails = async (req, res) => {
 
         if (availableQty < requiredQty) {
           return res.status(400).json({
-            message: `Not enough RM for class ${material.class_type} for ${material.name || "Unnamed Material"}`,
+            message: `Not enough RM for class ${material.class_type} for ${
+              material.name || "Unnamed Material"
+            }`,
           });
         }
 
@@ -399,6 +410,19 @@ export const updateTransitionDetails = async (req, res) => {
     production.updated_at = new Date();
 
     await production.save();
+    
+    if (to === "ready_quantity") {
+      const finishedGood = await FinishedGoods.findById(
+        production.finished_good
+      );
+      if (!finishedGood) {
+        return res.status(404).json({ message: "Finished good not found" });
+      }
+
+      finishedGood.units = (finishedGood.units || 0) + qty;
+      finishedGood.updated_at = new Date();
+      await finishedGood.save();
+    }
 
     return res.json({
       message: `Successfully moved ${qty} from ${from} → ${to}`,

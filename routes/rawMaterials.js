@@ -12,7 +12,8 @@ import {
   getRawMaterialFilterConfig,
   getRawMaterialStockStats,
   transitionQuantity,
-  getShortRawMaterialsByClass
+  getShortRawMaterialsByClass,
+  incrementRejectedQty
 } from '../controllers/rawMaterials.js';
 
 /**
@@ -449,6 +450,7 @@ router.put('/:id', updateRawMaterial);
  */
 router.delete('/:id', deleteRawMaterial);
 
+router.patch("/rejected/:id", incrementRejectedQty);
 /**
  * @swagger
  * /api/raw_material/{class_type}/{id}/transition:
@@ -496,5 +498,7 @@ router.delete('/:id', deleteRawMaterial);
  *         description: Server error
  */
 router.patch('/:class_type/:id/transition', transitionQuantity);
+
+
 
 export default router;

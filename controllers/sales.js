@@ -2,6 +2,7 @@ import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
 import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
+import PaymentRecieval from "../models/PaymentRecieval.js";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 
 export const getTopStats = async (req, res) => {
@@ -22,113 +23,56 @@ export const getTopStats = async (req, res) => {
     const prevMonthStart = startOfMonth(prevMonth);
     const prevMonthEnd = endOfMonth(prevMonth);
 
-    const [
-      currentSalesAgg,
-      prevSalesAgg,
-      currentOutstandingAgg,
-      prevOutstandingAgg,
-      currentOutstandingCountAgg,
-      prevOutstandingCountAgg,
-    ] = await Promise.all([
-      // Total Sales (current & previous month)
-      Sales.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            status: {
-              $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"],
-            },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$total_amount" } } },
-      ]),
-      Sales.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
-            status: {
-              $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"],
-            },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$total_amount" } } },
-      ]),
+    const currentSalesDocs = await Sales.find({
+      createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
+      status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
+    }).select("total_amount");
 
-      // Outstanding Amount (current & previous month)
-      Sales.aggregate([
-        {
-          $project: {
-            createdAt: 1,
-            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
-          },
-        },
-        {
-          $match: {
-            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            outstanding: { $gt: 0 },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$outstanding" } } },
-      ]),
-      Sales.aggregate([
-        {
-          $project: {
-            createdAt: 1,
-            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
-          },
-        },
-        {
-          $match: {
-            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
-            outstanding: { $gt: 0 },
-          },
-        },
-        { $group: { _id: null, total: { $sum: "$outstanding" } } },
-      ]),
+    const currentPaymentsDocs = await PaymentRecieval.find({
+      date_of_recieval: { $gte: currentMonthStart, $lte: currentMonthEnd },
+    }).select("amount");
 
-      // Due Payment Count (current & previous month)
-      Sales.aggregate([
-        {
-          $project: {
-            createdAt: 1,
-            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
-          },
-        },
-        {
-          $match: {
-            createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            outstanding: { $ne: 0 },
-          },
-        },
-        { $count: "total" },
-      ]),
-      Sales.aggregate([
-        {
-          $project: {
-            createdAt: 1,
-            outstanding: { $subtract: ["$total_amount", "$recieved_amount"] },
-          },
-        },
-        {
-          $match: {
-            createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
-            outstanding: { $ne: 0 },
-          },
-        },
-        { $count: "total" },
-      ]),
-    ]);
+    // --- Previous Month ---
+    const prevSalesDocs = await Sales.find({
+      createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
+      status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
+    }).select("total_amount");
 
-    // Safely extract values
-    const currentSales = parseFloat(currentSalesAgg[0]?.total || 0);
-    const prevSales = parseFloat(prevSalesAgg[0]?.total || 0);
+    const prevPaymentsDocs = await PaymentRecieval.find({
+      date_of_recieval: { $gte: prevMonthStart, $lte: prevMonthEnd },
+    }).select("amount");
 
-    const currentOutstanding = parseFloat(currentOutstandingAgg[0]?.total || 0);
-    const prevOutstanding = parseFloat(prevOutstandingAgg[0]?.total || 0);
+    // --- Aggregation Helpers ---
+    const sumAmounts = (arr, field) =>
+      arr.reduce((sum, doc) => {
+        const val = doc[field]
+          ? parseFloat(doc[field].toString())
+          : 0;
+        return sum + val;
+      }, 0);
 
-    const currentDueCount = currentOutstandingCountAgg[0]?.total || 0;
-    const prevDueCount = prevOutstandingCountAgg[0]?.total || 0;
+    const currentSales = sumAmounts(currentSalesDocs, "total_amount");
+    const prevSales = sumAmounts(prevSalesDocs, "total_amount");
 
+    const currentPayments = sumAmounts(currentPaymentsDocs, "amount");
+    const prevPayments = sumAmounts(prevPaymentsDocs, "amount");
+
+    // Outstanding = total sales - payments (for that month only)
+    const currentOutstanding = Math.max(0, currentSales - currentPayments);
+    const prevOutstanding = Math.max(0, prevSales - prevPayments);
+
+    // Due count = number of sales that are not fully paid
+    const currentDueCount = currentSalesDocs.filter((sale) => {
+      const paidForThisSale = currentPayments; // global month sum, adjust if you want per-sale
+      return parseFloat(sale.total_amount?.toString() || 0) > paidForThisSale;
+    }).length;
+
+    const prevDueCount = prevSalesDocs.filter((sale) => {
+      const paidForThisSale = prevPayments;
+      return parseFloat(sale.total_amount?.toString() || 0) > paidForThisSale;
+    }).length;
+
+    // --- Utility for % change ---
     const calcPercentage = (current, previous) => {
       if (previous === 0 && current === 0) return "0%";
       if (previous === 0) return "+∞%";
@@ -639,7 +583,8 @@ export const getFgBySalesId = async (req, res) => {
     const formattedFgs = sales.finished_goods.map((fg) => ({
       id: fg.finished_good?._id,
       model_number: getFgModelNumber(fg.finished_good),
-      remaining_quantity: Math.max(0, fg.quantity - (fg.invoiced_quantity || 0)), // 🔹 New field
+      remaining_quantity: Math.max(0, fg.quantity - (fg.invoiced_quantity || 0)), 
+      stock_units: fg.finished_good?.units ?? 0,
     }));
 
     return res.status(200).json(formattedFgs);

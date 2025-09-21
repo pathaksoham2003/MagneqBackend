@@ -4,8 +4,7 @@ import Customer from "../models/Customers.js";
 export const createPayment = async (req, res) => {
   try {
     const { customerId, date_of_recieval, amount, description } = req.body;
-console.log("sdhdsjj")
-    // validate customer
+    
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({ message: "Customer not found" });

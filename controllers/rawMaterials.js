@@ -453,3 +453,45 @@ export const getShortRawMaterialsByClass = async (req, res) => {
   }
 };
 
+export const incrementRejectedQty = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { qty, class_type } = req.body;
+    console.log(req.body)
+    if (!qty || isNaN(qty) || qty <= 0) {
+      return res.status(400).json({ message: "Invalid qty provided" });
+    }
+    if (!["A", "B", "C"].includes(class_type)) {
+      return res.status(400).json({ message: "Invalid class_type provided" });
+    }
+
+    const fromField = class_type === "B" ? "quantity.unprocessed" : "quantity.processed";
+
+    // Atomically decrease fromField and increase rejected
+    const rawMaterial = await RawMaterial.findOneAndUpdate(
+      {
+        _id: id,
+        [fromField]: { $gte: qty }, // ensure enough stock
+      },
+      {
+        $inc: {
+          [fromField]: -qty,
+          "quantity.rejected": qty,
+        },
+      },
+      { new: true }
+    );
+
+    if (!rawMaterial) {
+      return res.status(400).json({ message: "Insufficient stock or raw material not found" });
+    }
+
+    return res.status(200).json({
+      message: "Rejected quantity updated successfully",
+      data: rawMaterial,
+    });
+  } catch (error) {
+    console.error("Error updating rejected qty:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
