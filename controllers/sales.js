@@ -420,6 +420,11 @@ export const getSaleById = async (req, res) => {
         item_total_price: Number(item.item_total_price),
         base_price: Number(item.finished_good.base_price),
         status: item.status,
+        // Add original data for editing
+        model: item.finished_good.model,
+        type: item.finished_good.type,
+        ratio: item.finished_good.ratio,
+        power: item.finished_good.power,
       };
     });
 
@@ -430,50 +435,6 @@ export const getSaleById = async (req, res) => {
     });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ error: err.message });
-  }
-};
-
-export const updateSale = async (req, res) => {
-  try {
-    let updateData = { ...req.body };
-
-    if (updateData.finished_goods) {
-      let totalAmount = 0;
-      updateData.finished_goods = updateData.finished_goods.map((item) => {
-        const rate = parseFloat(item.rate_per_unit || 0);
-        const quantity = parseFloat(item.quantity || 0);
-        const itemTotal = rate * quantity;
-
-        totalAmount += itemTotal;
-
-        return {
-          ...item,
-          item_total_price: itemTotal.toFixed(2),
-        };
-      });
-      updateData.total_amount = totalAmount.toFixed(2);
-    }
-
-    const updated = await Sales.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-    })
-      .populate("finished_goods.finished_good")
-      .populate("created_by");
-
-    if (!updated) return res.status(404).json({ message: "Sale not found" });
-    res.status(200).json(updated);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-export const deleteSale = async (req, res) => {
-  try {
-    const deleted = await Sales.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Sale not found" });
-    res.status(200).json({ message: "Sale deleted" });
-  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
@@ -492,6 +453,100 @@ export const updateSaleStatus = async (req, res) => {
     if (!sale) return res.status(404).json({ message: "Sale not found" });
     res.status(200).json({ message: "Status updated" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+// NEW: Update sales order function (only for UN_APPROVED orders)
+export const updateSalesOrder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sale = await Sales.findById(id);
+
+    if (!sale) {
+      return res.status(404).json({ error: "Sale not found" });
+    }
+
+    // Only allow updates for UN_APPROVED orders
+    if (sale.status !== "UN_APPROVED") {
+      return res.status(400).json({ 
+        error: "Only unapproved sales orders can be edited" 
+      });
+    }
+
+    let updateData = { ...req.body };
+
+    // If finished_goods are being updated, process them
+    if (updateData.finished_goods && Array.isArray(updateData.finished_goods)) {
+      let totalAmount = 0;
+      const updatedFinishedGoods = [];
+
+      for (const item of updateData.finished_goods) {
+        const { model, type, ratio, power, quantity, fg_id } = item;
+
+        // Find the finished good
+        const finishedGood = await FinishedGoods.findOne({
+          model,
+          type,
+          ratio,
+          power,
+        });
+
+        if (!finishedGood) {
+          return res.status(404).json({
+            error: `Finished good not found for model: ${model}, type: ${type}, ratio: ${ratio}, power: ${power}`,
+          });
+        }
+
+        // Use base price for rate_per_unit when editing
+        const rate = parseFloat(finishedGood.base_price || 0);
+        const qty = parseFloat(quantity || 0);
+        const itemTotal = rate * qty;
+        totalAmount += itemTotal;
+
+        updatedFinishedGoods.push({
+          finished_good: finishedGood._id,
+          rate_per_unit: rate.toFixed(2),
+          quantity: qty,
+          item_total_price: itemTotal.toFixed(2),
+        });
+      }
+
+      updateData.finished_goods = updatedFinishedGoods;
+      updateData.total_amount = totalAmount.toFixed(2);
+      updateData.recieved_amount = 0; // Reset received amount when items change
+    }
+
+    const allowedUpdates = ['customer_name', 'magneq_user', 'description', 'delivery_date', 'finished_goods', 'total_amount', 'recieved_amount'];
+    const filteredUpdateData = {};
+    
+    Object.keys(updateData).forEach(key => {
+      if (allowedUpdates.includes(key)) {
+        filteredUpdateData[key] = updateData[key];
+      }
+    });
+
+    // Always update the updated_at timestamp
+    filteredUpdateData.updated_at = new Date();
+
+    const updatedSale = await Sales.findByIdAndUpdate(
+      id, 
+      filteredUpdateData, 
+      { new: true }
+    )
+      .populate("finished_goods.finished_good")
+      .populate("created_by")
+      .populate("customer_created_by");
+
+    if (!updatedSale) {
+      return res.status(404).json({ message: "Sale not found" });
+    }
+
+    res.status(200).json({ 
+      message: "Sales order updated successfully", 
+      sale: updatedSale 
+    });
+  } catch (err) {
+    console.error("Error in updateSalesOrder:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -554,6 +609,15 @@ export const getSalesOfCustomer = async (req, res) => {
   } catch (err) {
     console.error("Error fetching sales orders:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+export const deleteSale = async (req, res) => {
+  try {
+    const deleted = await Sales.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Sale not found" });
+    res.status(200).json({ message: "Sale deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 
