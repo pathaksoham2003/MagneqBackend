@@ -28,6 +28,7 @@ import manageRoutes from "./routes/manage.js";
 import notificationRoutes from "./routes/notification.js";
 import paymentRoutes from "./routes/payment.js";
 import deliveryRoutes from "./routes/delivery.js";
+import ledgerRoutes from "./routes/ledger.js";
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ app.use(express.json());
 app.get("/", (req, res) => res.send("ERP Server Running..."));
 
 app.use("/api", userRouter);
+app.use("/api/ledger", ledgerRoutes);
 app.use("/api/raw_material", rawMaterialRoutes);
 app.use("/api/purchase_order", purchaseOrderRoutes);
 app.use("/api/quality", qualityRoutes);

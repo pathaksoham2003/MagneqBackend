@@ -1,13 +1,13 @@
 import DeliveryDetails from "../models/DeliveryDetails.js";
 import Invoice from "../models/Invoice.js";
 import mongoose from "mongoose";
+import Ledger from "../models/Ledger.js";
 
 const getFgModelNumber = (fg) => {
   if (!fg) return "";
   return `${fg.model || ""}-${fg.type || ""}-${fg.ratio || ""}-${fg.power || ""}`;
 };
 
-// CREATE Dispatch
 export const createDelivery = async (req, res) => {
   try {
     const { invoices, from, to, description } = req.body;
@@ -16,12 +16,20 @@ export const createDelivery = async (req, res) => {
       return res.status(400).json({ message: "At least one invoice ID is required" });
     }
 
-    // Update invoice statuses
+    // 1. Fetch invoices
+    const invoiceDocs = await Invoice.find({ _id: { $in: invoices } });
+
+    if (!invoiceDocs || invoiceDocs.length === 0) {
+      return res.status(404).json({ message: "Invoices not found" });
+    }
+
+    // 2. Update invoice statuses
     await Invoice.updateMany(
       { _id: { $in: invoices } },
       { $set: { status: "DISPATCHED" } }
     );
 
+    // 3. Create delivery record
     const delivery = await DeliveryDetails.create({
       invoices,
       from,
@@ -30,7 +38,25 @@ export const createDelivery = async (req, res) => {
       dispatched_by: req.user?._id,
     });
 
-    return res.status(201).json(delivery);
+    // 4. Create ledger entries for each invoice (Debit)
+    const ledgerEntries = invoiceDocs.map(inv => ({
+      customer_id: inv.customer_id,
+      invoice_id: inv._id,
+      date: new Date(),
+      type: "DEBIT", // invoice = debit
+      amount: inv.total_invoice_amount,
+      details: `Invoice #${inv.invoice_number} dispatched`,
+    }));
+
+    if (ledgerEntries.length > 0) {
+      await Ledger.insertMany(ledgerEntries);
+    }
+
+    return res.status(201).json({
+      message: "Delivery created & ledger updated",
+      delivery,
+      ledgerEntries,
+    });
   } catch (err) {
     console.error("Error creating delivery:", err);
     return res.status(500).json({ message: "Internal Server Error" });
