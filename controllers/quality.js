@@ -4,7 +4,9 @@ import Quality from "../models/Quality.js";
 export const createQuality = async (req, res) => {
   try {
     const {issue_type, items = [], description} = req.body;
-
+    if(!description || !issue_type ||!items){
+      res.status(400).json({message:"All the fields are required"})
+    }
     if (issue_type === "Material") {
       const finishedGoodsIds = [];
 

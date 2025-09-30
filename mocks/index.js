@@ -27,6 +27,7 @@ import XLSX from "xlsx";
 import DeliveryDetails from "../models/DeliveryDetails.js";
 import Invoice from "../models/Invoice.js";
 import PaymentRecieval from "../models/PaymentRecieval.js";
+import Ledger from "../models/Ledger.js";
 
 const generateRawMaterialsB = async () => {
   const workbook = XLSX.readFile("./mocks/data/rawMaterialB.csv");
@@ -270,6 +271,7 @@ const seedVendors = async () => {
 
 const flushAll = async () => {
   await Notification.deleteMany({});
+  await Ledger.deleteMany({});
   await RawMaterial.deleteMany({});
   await Purchase.deleteMany({});
   await FinishedGoods.deleteMany({});
