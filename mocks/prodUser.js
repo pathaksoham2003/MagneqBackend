@@ -1,0 +1,123 @@
+[
+  {
+    "name": "Pratik Agrawal",
+    "role": "DEVELOPER",
+    "user_name": "Developer@MT",
+    "password": "Magneq@2025",
+    "permissions": {
+      "sidebar": [
+        "finished_good",
+        {
+          "route": "raw_material",
+          "sub_routes": ["A", "B", "C"]
+        },
+        "manage_suppliers",
+        "manage_customers",
+        "manage_users"
+      ],
+      "support": ["email"],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
+    "name": "Pratik Agrawal",
+    "role": "ADMIN",
+    "user_name": "Admin@MT",
+    "password": "Magneq@2025",
+    "permissions": {
+      "sidebar": [
+        "",
+        "sales",
+        "production",
+        "store",
+        "invoice",
+        "delivery",
+        "purchase",
+        "quality"
+      ],
+      "support": [],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
+    "name": "Aslam",
+    "role": "PRODUCTION",
+    "user_name": "Production@MT",
+    "password": "Product@2025",
+    "permissions": {
+      "sidebar": [
+        "production",
+        "create_pro"
+      ],
+      "support": [],
+      "allowed_routes": [
+        "/production",
+        "/create_pro",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
+    "name": "Aslam",
+    "role": "PURCHASE",
+    "user_name": "Purchase@MT",
+    "password": "Gearbox@2025",
+    "permissions": {
+      "sidebar": [
+        "store",
+        "purchase",
+        "quality"
+      ],
+      "support": [],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
+    "name": "Aslam",
+    "role": "STORE",
+    "user_name": "Stores@MT",
+    "password": "Gearbox@2025",
+    "permissions": {
+      "sidebar": [
+        "store",
+        "quality"
+      ],
+      "support": [],
+      "allowed_routes": [
+        "/dashboard",
+        "/store",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  }
+]
