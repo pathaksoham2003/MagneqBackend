@@ -252,7 +252,6 @@ export const getInvoiceById = async (req, res) => {
 
     // convert to plain object
     const invoice = invoiceDoc.toObject();
-
     const formattedInvoice = {
       invoice_number: invoice.invoice_number,
       status: invoice.status,
@@ -265,11 +264,12 @@ export const getInvoiceById = async (req, res) => {
         phone: invoice.customer_id?.phone,
         address: invoice.customer_id?.address,
         state: invoice.customer_id?.state,
-        pincode: invoice.customer_id?.pincode,
+        pincode: invoice.customer_id?.pin_code,
+        gst:invoice.customer_id?.gst_no,
       },
       sales_order: {
         id: invoice.sales_id?._id,
-        sales_order_number: invoice.sales_id?.sales_order_number,
+        sales_order_number: invoice.sales_id?.order_id,
       },
       items: invoice.items.map((item) => ({
         sales_item: item.sales_item,
