@@ -4,6 +4,7 @@ import {
   getAllFinishedGoods,
   getFinishedGoodById,
   updateFinishedGood,
+  updateFinishedGoodDetails,
   deleteFinishedGood,
   getModelConfig,
 } from "../controllers/finishedGoods.js";
@@ -36,8 +37,6 @@ const router = express.Router();
  *                 type: string
  *               ratio:
  *                 type: string
- *               other_specification:
- *                 type: object
  *               raw_materials:
  *                 type: array
  *                 items:
@@ -150,7 +149,7 @@ router.get("/", getAllFinishedGoods);
  * @swagger
  * /api/finished_goods/{id}:
  *   put:
- *     summary: Update a finished good by ID
+ *     summary: Update raw materials for a finished good by ID
  *     tags: [FinishedGoods]
  *     parameters:
  *       - in: path
@@ -165,13 +164,70 @@ router.get("/", getAllFinishedGoods);
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               classA:
+ *                 type: array
+ *               classB:
+ *                 type: array
+ *               classC:
+ *                 type: array
  *     responses:
  *       200:
- *         description: Finished good updated successfully
+ *         description: Finished good raw materials updated successfully
  *       404:
  *         description: Finished good not found
  */
 router.put("/:id", updateFinishedGood);
+
+/**
+ * @swagger
+ * /api/finished_goods/{id}/details:
+ *   put:
+ *     summary: Update finished good details (model, power, type, ratio, base_price, gst_slab)
+ *     tags: [FinishedGoods]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Finished good ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               model:
+ *                 type: string
+ *               power:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *               ratio:
+ *                 type: string
+ *               base_price:
+ *                 type: number
+ *               gst_slab:
+ *                 type: number
+ *             required:
+ *               - model
+ *               - power
+ *               - type
+ *               - ratio
+ *               - gst_slab
+ *     responses:
+ *       200:
+ *         description: Finished good details updated successfully
+ *       400:
+ *         description: Bad request - missing required fields
+ *       404:
+ *         description: Finished good not found
+ *       409:
+ *         description: Duplicate model number exists
+ */
+router.put("/:id/details", updateFinishedGoodDetails);
 
 /**
  * @swagger

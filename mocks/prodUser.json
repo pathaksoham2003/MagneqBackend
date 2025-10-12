@@ -39,8 +39,8 @@
         "sales",
         "production",
         "store",
+        "finished_good",
         "invoice",
-        "delivery",
         "purchase",
         "quality"
       ],
@@ -71,6 +71,31 @@
       "allowed_routes": [
         "/production",
         "/create_pro",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
+    "name": "Aslam",
+    "role": "SALES",
+    "user_name": "Sales@MT",
+    "password": "Gearbox@2025",
+    "permissions": {
+      "sidebar": [
+        "create_order",
+        "track_order",
+        "invoice",
+        "quality"
+      ],
+      "support": [],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
         "/chat",
         "/email"
       ]

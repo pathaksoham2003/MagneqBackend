@@ -101,8 +101,8 @@ export const getPendingProductionOrders = async (req, res) => {
       return {
         id: production._id,
         data: [
-          `PRO-${production.pro_id}(SO-${production.order_id || "PRO"})`,
-          production.customer_name || "Unknown Vendor",
+          `PRO-${production.pro_id}`,
+          production.customer_name || "N/A",
           production.createdAt,
           orderDetails,
           production.quantity,
@@ -115,7 +115,7 @@ export const getPendingProductionOrders = async (req, res) => {
 
     res.status(200).json({
       header: [
-        "Production Id / Sales Id",
+        "Production Id",
         "Customer Name",
         "Date of Creation",
         "Order Details",
@@ -174,13 +174,12 @@ export const getProductionDetails = async (req, res) => {
 
     res.status(200).json({
       production_id: production._id,
-      order_id: production.order_id,
+      pro_id: production.pro_id,
       finished_good: {
         model: getModelNumber(finishedGood.model),
         type: finishedGood.type,
         ratio: finishedGood.ratio,
       },
-      order_quantity: production.order_quantity,
       quantity: production.quantity,
       start_quantity: production.start_quantity,
       ready_quantity: production.ready_quantity,
@@ -346,6 +345,92 @@ export const getTransitionDetails = async (req, res) => {
 };
 
 // PUT transition details
+export const addDailyProduction = async (req, res) => {
+  try {
+    const { finished_goods } = req.body;
+
+    if (!finished_goods || !Array.isArray(finished_goods) || finished_goods.length === 0) {
+      return res.status(400).json({ 
+        error: "Finished goods array is required and must not be empty" 
+      });
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (const item of finished_goods) {
+      const { model, type, ratio, power, quantity } = item;
+
+      if (!model || !type || !ratio || !power || !quantity) {
+        errors.push({
+          item: { model, type, ratio, power, quantity },
+          error: "All fields (model, type, ratio, power, quantity) are required"
+        });
+        continue;
+      }
+
+      if (quantity <= 0) {
+        errors.push({
+          item: { model, type, ratio, power, quantity },
+          error: "Quantity must be greater than 0"
+        });
+        continue;
+      }
+
+      // Find the finished good
+      const finishedGood = await FinishedGoods.findOne({
+        model,
+        type,
+        ratio,
+        power,
+      });
+
+      if (!finishedGood) {
+        errors.push({
+          item: { model, type, ratio, power, quantity },
+          error: "Finished good not found"
+        });
+        continue;
+      }
+
+      // Increase the finished good stock
+      const currentUnits = finishedGood.units || 0;
+      finishedGood.units = currentUnits + quantity;
+      finishedGood.updated_at = new Date();
+      await finishedGood.save();
+
+      results.push({
+        finished_good: {
+          id: finishedGood._id,
+          model: finishedGood.model,
+          type: finishedGood.type,
+          ratio: finishedGood.ratio,
+          power: finishedGood.power,
+          previous_units: currentUnits,
+          new_units: finishedGood.units,
+          added_quantity: quantity
+        }
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(400).json({
+        error: "No finished goods were processed successfully",
+        errors
+      });
+    }
+
+    res.status(201).json({
+      message: `Successfully added ${results.length} finished good(s) to stock`,
+      results,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (err) {
+    console.error("Error in addDailyProduction:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 export const updateTransitionDetails = async (req, res) => {
   try {
     const { id } = req.params;

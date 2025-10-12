@@ -3,6 +3,7 @@ import {
   classHeaders,
   filterFieldsByClass,
   validateFieldsByClass,
+  validateFieldsForUpdate,
 } from "../utils/helper.js";
 
 export const getRawMaterialById = async (req, res) => {
@@ -225,7 +226,7 @@ export const updateRawMaterial = async (req, res) => {
       return res.status(400).json({ error: "class_type is required" });
     }
 
-    const missingFields = validateFieldsByClass(class_type, req.body);
+    const missingFields = validateFieldsForUpdate(class_type, req.body);
     if (missingFields.length > 0) {
       return res.status(400).json({
         error: "Validation failed",
@@ -457,7 +458,7 @@ export const incrementRejectedQty = async (req, res) => {
   try {
     const { id } = req.params;
     const { qty, class_type } = req.body;
-    console.log(req.body)
+    
     if (!qty || isNaN(qty) || qty <= 0) {
       return res.status(400).json({ message: "Invalid qty provided" });
     }

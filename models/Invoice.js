@@ -40,6 +40,8 @@ const invoiceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Decimal128,
       default: 0,
     },
+    transport_details: { type: String, default: "" },
+    lr_number: { type: String, default: "" },
   },
   { timestamps: true }
 );

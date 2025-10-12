@@ -1,8 +1,22 @@
 export const validateFieldsByClass = (class_type, data) => {
   const requiredFields = {
-    A: ["other_specification", "quantity", "name"],
+    A: ["quantity", "name"],
     B: ["name", "quantity", "status"],
-    C: ["other_specification", "quantity", "select_items", "expiry_date"],
+    C: ["quantity", "select_items", "expiry_date"],
+  };
+
+  const missingFields = requiredFields[class_type]?.filter(
+    (field) => data[field] === undefined || data[field] === null
+  );
+
+  return missingFields;
+};
+
+export const validateFieldsForUpdate = (class_type, data) => {
+  const requiredFields = {
+    A: ["name","type"],
+    B: ["name","type"],
+    C: ["name","type"],
   };
 
   const missingFields = requiredFields[class_type]?.filter(
@@ -88,9 +102,9 @@ export const getFgModelNumber = (fg) => {
   const model = fg.model || "$";
   let type = "";
   if(fg.type === "Base (Foot)"){
-    type = "B" || "$";
+    type = "B";
   }else if (fg.type === "Vertical (Flange)"){
-    type = "B" || "$";
+    type = "V";
   }
   const ratio = formatPower(fg.ratio || "$");
   const otherSpec = fg.other_specification || {};

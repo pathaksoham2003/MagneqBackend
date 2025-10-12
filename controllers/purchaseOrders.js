@@ -229,11 +229,10 @@ export const addStockToPurchaseOrder = async (req, res) => {
       return res.status(404).json({error: "Purchase order not found"});
     }
 
-    let allRecieved = false;
+    // Update received quantities for the items being added
     for (const item of items) {
       for (const poItem of purchaseOrder.items) {
         if (poItem._id.equals(item.item_id)) {
-          allRecieved = true;
           const incPath =
             poItem.raw_material_id.class_type === "B" ? "quantity.unprocessed" : "quantity.processed";
           const oldQuantity = poItem.recieved_quantity;
@@ -244,7 +243,6 @@ export const addStockToPurchaseOrder = async (req, res) => {
           if (newTotal >= poItem.quantity) {
             poItem.status = PO_ITEM_STATUS.RECIEVED;
           }
-          allRecieved = allRecieved && newTotal >= poItem.quantity;
           await RawMaterials.findByIdAndUpdate(
             poItem.raw_material_id,
             {
@@ -256,6 +254,12 @@ export const addStockToPurchaseOrder = async (req, res) => {
         }
       }
     }
+
+    // Check if all items in the purchase order are fully received
+    const allRecieved = purchaseOrder.items.every(item => 
+      item.recieved_quantity >= item.quantity
+    );
+    
     if (allRecieved) {
       purchaseOrder.status = PO_STATUS.COMPLETE;
     }
@@ -343,58 +347,112 @@ export const getPurchaseStats = async (req, res) => {
       prevPurchaseAgg,
       pendingOrdersCount,
       prevPendingOrdersCount,
-      totalPendingPayableAgg,
-      prevTotalPendingPayableAgg
+      currentPayableAgg,
+      prevPayableAgg
     ] = await Promise.all([
 
-      // Current month purchase total
+      // Current month purchase total - sum of all received quantities
       Purchase.aggregate([
         { $match: { created_at: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
         { $unwind: "$items" },
-        { $match: { "items.status": PO_ITEM_STATUS.RECIEVED } },
-        { $group: { _id: null, total: { $sum: { $toDouble: "$items.item_total_price" } } } },
+        { $match: { "items.recieved_quantity": { $gt: 0 } } },
+        { 
+          $addFields: {
+            receivedItemPrice: {
+              $multiply: [
+                { $toDouble: "$items.price_per_unit" },
+                { $toDouble: "$items.recieved_quantity" }
+              ]
+            }
+          }
+        },
+        { $group: { _id: null, total: { $sum: "$receivedItemPrice" } } },
       ]),
 
-      // Previous month purchase total
+      // Previous month purchase total - sum of all received quantities
       Purchase.aggregate([
         { $match: { created_at: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
         { $unwind: "$items" },
-        { $match: { "items.status": PO_ITEM_STATUS.RECIEVED } },
-        { $group: { _id: null, total: { $sum: { $toDouble: "$items.item_total_price" } } } },
+        { $match: { "items.recieved_quantity": { $gt: 0 } } },
+        { 
+          $addFields: {
+            receivedItemPrice: {
+              $multiply: [
+                { $toDouble: "$items.price_per_unit" },
+                { $toDouble: "$items.recieved_quantity" }
+              ]
+            }
+          }
+        },
+        { $group: { _id: null, total: { $sum: "$receivedItemPrice" } } },
       ]),
 
-      // Current month pending orders
+      // Current month pending orders (not complete)
       Purchase.countDocuments({
         created_at: { $gte: currentMonthStart, $lte: currentMonthEnd },
-        status: PO_STATUS.PENDING
+        status: { $ne: PO_STATUS.COMPLETE }
       }),
 
-      // Previous month pending orders
+      // Previous month pending orders (not complete)
       Purchase.countDocuments({
         created_at: { $gte: prevMonthStart, $lte: prevMonthEnd },
-        status: PO_STATUS.PENDING
+        status: { $ne: PO_STATUS.COMPLETE }
       }),
 
-      // Current month pending payable total
+      // Current month remaining payable - sum of remaining amounts for all orders
       Purchase.aggregate([
-        {
-          $match: {
-            created_at: { $gte: currentMonthStart, $lte: currentMonthEnd },
-            status: PO_STATUS.PENDING
+        { $match: { created_at: { $gte: currentMonthStart, $lte: currentMonthEnd } } },
+        { $unwind: "$items" },
+        { 
+          $addFields: {
+            remainingQuantity: {
+              $subtract: [
+                { $toDouble: "$items.quantity" },
+                { $toDouble: "$items.recieved_quantity" }
+              ]
+            }
           }
         },
-        { $group: { _id: null, total: { $sum: { $toDouble: "$total_price" } } } },
+        { $match: { remainingQuantity: { $gt: 0 } } },
+        { 
+          $addFields: {
+            remainingItemPrice: {
+              $multiply: [
+                { $toDouble: "$items.price_per_unit" },
+                "$remainingQuantity"
+              ]
+            }
+          }
+        },
+        { $group: { _id: null, total: { $sum: "$remainingItemPrice" } } },
       ]),
 
-      // Previous month pending payable total
+      // Previous month remaining payable
       Purchase.aggregate([
-        {
-          $match: {
-            created_at: { $gte: prevMonthStart, $lte: prevMonthEnd },
-            status: PO_STATUS.PENDING
+        { $match: { created_at: { $gte: prevMonthStart, $lte: prevMonthEnd } } },
+        { $unwind: "$items" },
+        { 
+          $addFields: {
+            remainingQuantity: {
+              $subtract: [
+                { $toDouble: "$items.quantity" },
+                { $toDouble: "$items.recieved_quantity" }
+              ]
+            }
           }
         },
-        { $group: { _id: null, total: { $sum: { $toDouble: "$total_price" } } } },
+        { $match: { remainingQuantity: { $gt: 0 } } },
+        { 
+          $addFields: {
+            remainingItemPrice: {
+              $multiply: [
+                { $toDouble: "$items.price_per_unit" },
+                "$remainingQuantity"
+              ]
+            }
+          }
+        },
+        { $group: { _id: null, total: { $sum: "$remainingItemPrice" } } },
       ]),
     ]);
 
@@ -404,8 +462,8 @@ export const getPurchaseStats = async (req, res) => {
     const currentPendingOrders = pendingOrdersCount;
     const prevPendingOrders = prevPendingOrdersCount;
 
-    const currentPayable = parseFloat(totalPendingPayableAgg[0]?.total || 0);
-    const prevPayable = parseFloat(prevTotalPendingPayableAgg[0]?.total || 0);
+    const currentPayable = parseFloat(currentPayableAgg[0]?.total || 0);
+    const prevPayable = parseFloat(prevPayableAgg[0]?.total || 0);
 
     const calcPercentage = (current, previous) => {
       if (previous === 0 && current === 0) return "0%";

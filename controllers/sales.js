@@ -3,7 +3,9 @@ import FinishedGoods from "../models/FinishedGoods.js";
 import Production from "../models/Production.js";
 import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
 import PaymentRecieval from "../models/PaymentRecieval.js";
+import Invoice from "../models/Invoice.js";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
+import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
 
 export const getTopStats = async (req, res) => {
   try {
@@ -23,24 +25,21 @@ export const getTopStats = async (req, res) => {
     const prevMonthStart = startOfMonth(prevMonth);
     const prevMonthEnd = endOfMonth(prevMonth);
 
-    const currentSalesDocs = await Sales.find({
-      createdAt: { $gte: currentMonthStart, $lte: currentMonthEnd },
-      status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
-    }).select("total_amount");
+    // Get invoices for current month (based on invoice_date) for sales calculation
+    const currentInvoices = await Invoice.find({
+      invoice_date: { $gte: currentMonthStart, $lte: currentMonthEnd },
+    }).select("total_invoice_amount customer_id");
 
-    const currentPaymentsDocs = await PaymentRecieval.find({
-      date_of_recieval: { $gte: currentMonthStart, $lte: currentMonthEnd },
-    }).select("amount");
+    // Get invoices for previous month (based on invoice_date) for sales calculation
+    const prevInvoices = await Invoice.find({
+      invoice_date: { $gte: prevMonthStart, $lte: prevMonthEnd },
+    }).select("total_invoice_amount customer_id");
 
-    // --- Previous Month ---
-    const prevSalesDocs = await Sales.find({
-      createdAt: { $gte: prevMonthStart, $lte: prevMonthEnd },
-      status: { $in: ["PROCESSED", "DISPATCHED", "DELIVERED", "INPROCESS"] },
-    }).select("total_amount");
+    // Get ALL invoices for overdue calculation (not limited to current month)
+    const allInvoices = await Invoice.find({}).select("total_invoice_amount customer_id due_date invoice_date");
 
-    const prevPaymentsDocs = await PaymentRecieval.find({
-      date_of_recieval: { $gte: prevMonthStart, $lte: prevMonthEnd },
-    }).select("amount");
+    // Get ALL payments for overdue calculation (not limited to current month)
+    const allPaymentsDocs = await PaymentRecieval.find({}).select("amount customer date_of_recieval");
 
     // --- Aggregation Helpers ---
     const sumAmounts = (arr, field) =>
@@ -51,26 +50,101 @@ export const getTopStats = async (req, res) => {
         return sum + val;
       }, 0);
 
-    const currentSales = sumAmounts(currentSalesDocs, "total_amount");
-    const prevSales = sumAmounts(prevSalesDocs, "total_amount");
+    // Calculate sales based on invoiced amounts instead of sales orders
+    const currentSales = sumAmounts(currentInvoices, "total_invoice_amount");
+    const prevSales = sumAmounts(prevInvoices, "total_invoice_amount");
 
-    const currentPayments = sumAmounts(currentPaymentsDocs, "amount");
-    const prevPayments = sumAmounts(prevPaymentsDocs, "amount");
+    // Calculate outstanding and overdue amounts per customer
+    const calculateOutstandingAndOverdue = (invoices, payments) => {
+      const now = new Date();
+      
+      // Group invoices by customer
+      const invoicesByCustomer = {};
+      invoices.forEach(invoice => {
+        const customerId = invoice.customer_id.toString();
+        if (!invoicesByCustomer[customerId]) {
+          invoicesByCustomer[customerId] = [];
+        }
+        invoicesByCustomer[customerId].push({
+          amount: parseFloat(invoice.total_invoice_amount?.toString() || 0),
+          due_date: invoice.due_date,
+          invoice_date: invoice.invoice_date
+        });
+      });
 
-    // Outstanding = total sales - payments (for that month only)
-    const currentOutstanding = Math.max(0, currentSales - currentPayments);
-    const prevOutstanding = Math.max(0, prevSales - prevPayments);
+      // Group payments by customer (total payments per customer)
+      const paymentsByCustomer = {};
+      payments.forEach(payment => {
+        const customerId = payment.customer.toString();
+        if (!paymentsByCustomer[customerId]) {
+          paymentsByCustomer[customerId] = 0;
+        }
+        paymentsByCustomer[customerId] += parseFloat(payment.amount?.toString() || 0);
+      });
 
-    // Due count = number of sales that are not fully paid
-    const currentDueCount = currentSalesDocs.filter((sale) => {
-      const paidForThisSale = currentPayments; // global month sum, adjust if you want per-sale
-      return parseFloat(sale.total_amount?.toString() || 0) > paidForThisSale;
-    }).length;
+      // Calculate outstanding and overdue amounts per customer
+      let totalOutstanding = 0;
+      let totalOverdue = 0;
+      let customersWithOutstanding = 0;
+      let customersWithOverdue = 0;
 
-    const prevDueCount = prevSalesDocs.filter((sale) => {
-      const paidForThisSale = prevPayments;
-      return parseFloat(sale.total_amount?.toString() || 0) > paidForThisSale;
-    }).length;
+      Object.keys(invoicesByCustomer).forEach(customerId => {
+        const customerInvoices = invoicesByCustomer[customerId];
+        const totalPaid = paymentsByCustomer[customerId] || 0;
+        
+        let customerOutstanding = 0;
+        let customerOverdue = 0;
+        let totalInvoiced = 0;
+        let totalOverdueInvoiced = 0;
+        
+        // Calculate total invoiced amounts
+        customerInvoices.forEach(invoice => {
+          totalInvoiced += invoice.amount;
+          
+          // Check if invoice is overdue
+          const dueDate = new Date(invoice.due_date);
+          if (dueDate < now) {
+            totalOverdueInvoiced += invoice.amount;
+          }
+        });
+        
+        // Calculate outstanding amount (total invoiced - total payments)
+        if (totalInvoiced > 0) {
+          customerOutstanding = Math.max(0, totalInvoiced - totalPaid);
+        }
+        
+        // Calculate overdue amount (total overdue invoiced - total payments)
+        if (totalOverdueInvoiced > 0) {
+          customerOverdue = Math.max(0, totalOverdueInvoiced - totalPaid);
+        }
+        
+        totalOutstanding += customerOutstanding;
+        totalOverdue += customerOverdue;
+        
+        if (customerOutstanding > 0) {
+          customersWithOutstanding++;
+        }
+        if (customerOverdue > 0) {
+          customersWithOverdue++;
+        }
+      });
+
+      return { 
+        totalOutstanding, 
+        totalOverdue, 
+        customersWithOutstanding, 
+        customersWithOverdue 
+      };
+    };
+
+    const currentPaymentData = calculateOutstandingAndOverdue(allInvoices, allPaymentsDocs);
+    
+    // For previous month comparison, we need to calculate what outstanding/overdue was at the end of previous month
+    const prevMonthEndDate = new Date(prevMonthEnd);
+    const prevPaymentData = calculateOutstandingAndOverdue(
+      allInvoices.filter(inv => new Date(inv.invoice_date) <= prevMonthEndDate),
+      allPaymentsDocs.filter(pay => new Date(pay.date_of_recieval) <= prevMonthEndDate)
+    );
 
     // --- Utility for % change ---
     const calcPercentage = (current, previous) => {
@@ -85,14 +159,23 @@ export const getTopStats = async (req, res) => {
       total_sales: currentSales.toFixed(2),
       total_sales_change: calcPercentage(currentSales, prevSales),
 
-      total_outstanding_amount: currentOutstanding.toFixed(2),
+      total_outstanding_amount: currentPaymentData.totalOutstanding.toFixed(2),
       total_outstanding_change: calcPercentage(
-        currentOutstanding,
-        prevOutstanding
+        currentPaymentData.totalOutstanding,
+        prevPaymentData.totalOutstanding
       ),
 
-      due_payment_count: currentDueCount,
-      due_payment_change: calcPercentage(currentDueCount, prevDueCount),
+      total_overdue_amount: currentPaymentData.totalOverdue.toFixed(2),
+      total_overdue_change: calcPercentage(
+        currentPaymentData.totalOverdue,
+        prevPaymentData.totalOverdue
+      ),
+
+      due_payment_count: currentPaymentData.customersWithOverdue,
+      due_payment_change: calcPercentage(
+        currentPaymentData.customersWithOverdue,
+        prevPaymentData.customersWithOverdue
+      ),
     });
   } catch (err) {
     console.error("getTopStats error:", err);
@@ -159,7 +242,6 @@ export const approveSale = async (req, res) => {
   try {
     const { id } = req.params;
     const { finished_goods } = req.body;
-    const { createPro } = req.body;
     const sale = await Sales.findById(id);
 
     if (!sale) {
@@ -207,13 +289,11 @@ export const approveSale = async (req, res) => {
 
     const productionRecords = [];
 
-    if (createPro) {
       for (const item of sale.finished_goods) {
         const fg = await FinishedGoods.findById(item.finished_good);
         if (!fg) continue;
 
         const production = new Production({
-          order_id: sale.order_id,
           finished_good: fg._id,
           customer_name: sale.customer_name,
           order_quantity:item.quantity,
@@ -227,8 +307,7 @@ export const approveSale = async (req, res) => {
         await production.save();
         productionRecords.push(production);
       }
-    }
-
+    
     res
       .status(200)
       .json({ message: "Sale approved", sale, productions: productionRecords });

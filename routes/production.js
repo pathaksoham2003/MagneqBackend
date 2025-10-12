@@ -7,6 +7,7 @@ import {
   makeReady,
   startProduction,
   updateTransitionDetails,
+  addDailyProduction,
 } from '../controllers/production.js';
 
 const router = express.Router();
@@ -82,6 +83,113 @@ router.get('/', getPendingProductionOrders);
 router.get('/transition/:id', getTransitionDetails);
 router.put('/transition/:id', updateTransitionDetails);
 router.post('/create_pro',createProductionOrder);
+router.post('/daily-production', addDailyProduction);
+
+/**
+ * @swagger
+ * /api/production/daily-production:
+ *   post:
+ *     summary: Add daily production quantities for multiple finished goods
+ *     tags: [Production]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               finished_goods:
+ *                 type: array
+ *                 description: Array of finished goods with their production quantities
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     model:
+ *                       type: string
+ *                       description: Model of the finished good
+ *                       example: "MA-102"
+ *                     type:
+ *                       type: string
+ *                       description: Type of the finished good
+ *                       example: "AC"
+ *                     ratio:
+ *                       type: string
+ *                       description: Ratio of the finished good
+ *                       example: "15:1"
+ *                     power:
+ *                       type: number
+ *                       description: Power rating of the finished good
+ *                       example: 0.25
+ *                     quantity:
+ *                       type: number
+ *                       description: Quantity produced
+ *                       example: 10
+ *                   required:
+ *                     - model
+ *                     - type
+ *                     - ratio
+ *                     - power
+ *                     - quantity
+ *             required:
+ *               - finished_goods
+ *     responses:
+ *       201:
+ *         description: Daily production added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Successfully added production for 2 finished good(s)"
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       finished_good:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           model:
+ *                             type: string
+ *                           type:
+ *                             type: string
+ *                           ratio:
+ *                             type: string
+ *                           power:
+ *                             type: number
+ *                           previous_units:
+ *                             type: number
+ *                           new_units:
+ *                             type: number
+ *                           added_quantity:
+ *                             type: number
+ *                       production_record:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                           pro_id:
+ *                             type: number
+ *                 errors:
+ *                   type: array
+ *                   description: Any errors encountered during processing
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       item:
+ *                         type: object
+ *                       error:
+ *                         type: string
+ *       400:
+ *         description: Bad request (missing fields, invalid quantity, or no items processed)
+ *       500:
+ *         description: Server error
+ */
+
 /**
  * @swagger
  * /api/production/{id}:

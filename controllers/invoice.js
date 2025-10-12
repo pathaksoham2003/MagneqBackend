@@ -4,6 +4,8 @@ import FinishedGoods from "../models/FinishedGoods.js";
 import { calculateTaxes } from "../utils/taxCalculator.js";
 import Customers from "../models/Customers.js";
 import { formatDateTime, getFgModelNumber } from "../utils/helper.js";
+import Ledger from "../models/Ledger.js";
+import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -36,6 +38,14 @@ export const createInvoice = async (req, res) => {
       if (salesItem.invoiced_quantity + quantity > salesItem.quantity) {
         return res.status(400).json({
           message: `Cannot invoice more than ordered quantity for FG: ${fg_id}`,
+        });
+      }
+
+      // ✅ Check stock availability
+      const currentStock = fg.units || 0;
+      if (currentStock < quantity) {
+        return res.status(400).json({
+          message: `Insufficient stock for FG: ${fg_id}. Available: ${currentStock}, Required: ${quantity}`,
         });
       }
 
@@ -78,11 +88,11 @@ export const createInvoice = async (req, res) => {
       salesItem.total_invoiced_quantity = salesItem.invoiced_quantity;
     }
 
-    // 3. Calculate due_date = delivery_date + 45 days
+    // 3. Calculate due_date = delivery_date + PAYMENT_TERMS.DUE_DATE_DAYS days
     let dueDate = null;
     if (sales.delivery_date) {
       dueDate = new Date(sales.delivery_date);
-      dueDate.setDate(dueDate.getDate() + 45);
+      dueDate.setDate(dueDate.getDate() + PAYMENT_TERMS.DUE_DATE_DAYS);
     }
 
     // 4. Save invoice
@@ -97,7 +107,26 @@ export const createInvoice = async (req, res) => {
     // 5. Save updated Sales (with new invoiced quantities)
     await sales.save();
 
-    // 6. 🔹 Check if ALL items are fully invoiced
+    // 6. Reduce stock quantities for invoiced finished goods
+    for (const { fg_id, quantity } of items) {
+      await FinishedGoods.findByIdAndUpdate(
+        fg_id,
+        { $inc: { units: -quantity } }, // Reduce stock by invoiced quantity
+        { new: true }
+      );
+    }
+
+    // 7. Create ledger entry for the invoice (Debit)
+    const ledgerEntry = await Ledger.create({
+      customer_id: customer_id,
+      invoice_id: invoice._id,
+      date: new Date(),
+      type: "DEBIT", // invoice = debit
+      amount: totalInvoiceAmount,
+      details: `Invoice #${invoice.invoice_number} created`,
+    });
+
+    // 8. 🔹 Check if ALL items are fully invoiced
     const allInvoiced = sales.finished_goods.every(
       (item) => item.invoiced_quantity >= item.quantity
     );
@@ -107,7 +136,11 @@ export const createInvoice = async (req, res) => {
       await sales.save();
     }
 
-    return res.status(201).json(invoice);
+    return res.status(201).json({
+      message: "Invoice created, stock updated & ledger updated",
+      invoice,
+      ledgerEntry,
+    });
   } catch (err) {
     console.error("Error creating invoice:", err);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -118,14 +151,32 @@ export const getAllInvoices = async (req, res) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
-    const searchInvoice = req.query.search ? parseInt(req.query.search) : null;
+    const searchQuery = req.query.search;
+    const customerId = req.query.customer_id;
 
-    const query = searchInvoice ? { invoice_number: searchInvoice } : {};
+    // Build base query
+    let query = {};
 
-    if (req.user?.role === "CUSTOMER") {
-      query.customer_id = req.user.id; // only their invoices
-    } else if (req.user?.role === "SALES") {
-      // later can add filter on created_by if needed
+    // Filter by customer ID if provided
+    if (customerId) {
+      query.customer_id = customerId;
+    }
+
+    // Add search functionality
+    if (searchQuery) {
+      const searchNumber = parseInt(searchQuery);
+      if (!isNaN(searchNumber)) {
+        // Search by invoice number
+        query.invoice_number = searchNumber;
+      } else {
+        // Search by customer name (only if no specific customer filter)
+        if (!customerId) {
+          query.$or = [
+            { "customer_id.name": { $regex: searchQuery, $options: "i" } },
+            { "customer_id.user_name": { $regex: searchQuery, $options: "i" } }
+          ];
+        }
+      }
     }
 
     const totalCount = await Invoice.countDocuments(query);
@@ -257,6 +308,8 @@ export const getInvoiceById = async (req, res) => {
       status: invoice.status,
       invoice_date: invoice.invoice_date ? formatDateTime(invoice.invoice_date) : null,
       due_date: invoice.due_date ? formatDateTime(invoice.due_date) : null,
+      transport_details: invoice.transport_details || "",
+      lr_number: invoice.lr_number || "",
       customer: {
         id: invoice.customer_id?._id,
         name: invoice.customer_id?.name,
@@ -298,6 +351,145 @@ export const getInvoiceById = async (req, res) => {
     res.json(formattedInvoice);
   } catch (error) {
     console.error("Error fetching invoice:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const updateTransportDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { transport_details, lr_number } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invoice ID is required" });
+    }
+
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // Update transport details
+    if (transport_details !== undefined) {
+      invoice.transport_details = transport_details;
+    }
+    if (lr_number !== undefined) {
+      invoice.lr_number = lr_number;
+    }
+
+    await invoice.save();
+
+    res.status(200).json({
+      message: "Transport details updated successfully",
+      invoice: {
+        id: invoice._id,
+        invoice_number: invoice.invoice_number,
+        transport_details: invoice.transport_details,
+        lr_number: invoice.lr_number,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating transport details:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const updateInvoiceStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invoice ID is required" });
+    }
+
+    if (!status) {
+      return res.status(400).json({ message: "Status is required" });
+    }
+
+    const validStatuses = ["DISPATCHED", "DELIVERED", "OUT_FOR_DELIVERY"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: "Invalid status. Valid statuses are: DISPATCHED, DELIVERED, OUT_FOR_DELIVERY" 
+      });
+    }
+
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // Check if user has permission to update this invoice
+    if (req.user?.role === "CUSTOMER" && invoice.customer_id.toString() !== req.user.id) {
+      return res.status(403).json({ message: "You can only update your own invoices" });
+    }
+
+    invoice.status = status;
+    await invoice.save();
+
+    res.status(200).json({
+      message: "Invoice status updated successfully",
+      invoice: {
+        id: invoice._id,
+        invoice_number: invoice.invoice_number,
+        status: invoice.status,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating invoice status:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const deleteInvoice = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invoice ID is required" });
+    }
+
+    const invoice = await Invoice.findById(id);
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // Only ADMIN can delete invoices
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({ message: "Only administrators can delete invoices" });
+    }
+
+    // Check if invoice can be deleted (not delivered)
+    if (invoice.status === "DELIVERED") {
+      return res.status(400).json({ 
+        message: "Cannot delete delivered invoices. Please contact support." 
+      });
+    }
+
+    // Restore stock quantities
+    for (const item of invoice.items) {
+      await FinishedGoods.findByIdAndUpdate(
+        item.finished_good,
+        { $inc: { units: item.invoiced_quantity } }, // Add back the invoiced quantity
+        { new: true }
+      );
+    }
+
+    // Remove ledger entry
+    await Ledger.deleteOne({ invoice_id: invoice._id });
+
+    // Delete the invoice
+    await Invoice.findByIdAndDelete(id);
+
+    res.status(200).json({
+      message: "Invoice deleted successfully and stock restored",
+      deletedInvoice: {
+        id: invoice._id,
+        invoice_number: invoice.invoice_number,
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting invoice:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

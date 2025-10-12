@@ -7,7 +7,14 @@ import {
   getUsersByRole,
   getAllCustomers,
   getAllVendors,
+  getSupplierById,
+  updateSupplier,
+  getCustomerById,
+  updateCustomer,
+  getUserById,
+  updateUser,
 } from "../controllers/manage.js";
+import { authenticate } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -99,7 +106,7 @@ router.get('/manage_user', getUsersByRole);
  *       400:
  *         description: Failed to fetch finished goods
  */
-router.get("/finished_good", getFinishedGoods);
+router.get("/finished_good", authenticate, getFinishedGoods);
 
 /**
  * @swagger
@@ -128,6 +135,158 @@ router.get("/finished_good", getFinishedGoods);
 router.get("/raw_material/:class_type", getRawMaterialsByClass);
 router.get("/getAllCustomer", getAllCustomers);
 router.get("/getAllVendor", getAllVendors);
+
+/**
+ * @swagger
+ * /api/manage/supplier/{id}:
+ *   get:
+ *     summary: Get supplier by ID
+ *     tags: [Manage]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Supplier ID
+ *     responses:
+ *       200:
+ *         description: Supplier details
+ *       404:
+ *         description: Supplier not found
+ *   put:
+ *     summary: Update supplier
+ *     tags: [Manage]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Supplier ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Supplier updated successfully
+ *       404:
+ *         description: Supplier not found
+ */
+router.get("/supplier/:id", getSupplierById);
+router.put("/supplier/:id", updateSupplier);
+
+/**
+ * @swagger
+ * /api/manage/customer/{id}:
+ *   get:
+ *     summary: Get customer by ID
+ *     tags: [Manage]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     responses:
+ *       200:
+ *         description: Customer details
+ *       404:
+ *         description: Customer not found
+ *   put:
+ *     summary: Update customer
+ *     tags: [Manage]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Customer ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               pin_code:
+ *                 type: string
+ *               state:
+ *                 type: string
+ *               gst_no:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Customer updated successfully
+ *       404:
+ *         description: Customer not found
+ */
+router.get("/customer/:id", getCustomerById);
+router.put("/customer/:id", updateCustomer);
+
+/**
+ * @swagger
+ * /api/manage/user/{id}:
+ *   get:
+ *     summary: Get user by ID
+ *     tags: [Manage]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User details
+ *       404:
+ *         description: User not found
+ *   put:
+ *     summary: Update user
+ *     tags: [Manage]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       404:
+ *         description: User not found
+ */
+router.get("/user/:id", getUserById);
+router.put("/user/:id", updateUser);
 
 export default router;
 

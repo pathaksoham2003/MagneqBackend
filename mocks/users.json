@@ -9,8 +9,6 @@
         "create_order",
         "track_order",
         "invoice",
-        "delivery",
-        "ledger",
         "quality"
       ],
       "support": [],

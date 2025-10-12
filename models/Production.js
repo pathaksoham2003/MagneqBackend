@@ -4,18 +4,17 @@ import AutoIncrementFactory from "mongoose-sequence";
 const AutoIncrement = AutoIncrementFactory(mongoose);
 const productionSchema = new mongoose.Schema(
   {
-    order_id: Number,
     pro_id:{type: Number, unique: true},
     finished_good: {type: mongoose.Schema.Types.ObjectId, ref: "FinishedGoods"},
     order_quantity: {type: Number},
     quantity: {type: Number},
     start_quantity: {type:Number,default:0},
     ready_quantity: {type:Number,default:0},
-    customer_name: String,
+    customer_name: {type: String, default: "N/A"},
     created_at: Date,
     updated_at: Date,
-    status: {type: String, enum: ["UN_PROCESSED", "IN_PROCESSES", "READY","COMPLETED"]},
-    isProduction: Boolean,
+    status: {type: String, enum: ["UN_PROCESSED", "IN_PROCESSES", "READY","COMPLETED"], default: "UN_PROCESSED"},
+    isProduction: {type: Boolean, default: true},
   },
   {timestamps: true}
 );

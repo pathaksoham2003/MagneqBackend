@@ -282,8 +282,6 @@ router.get('/search', getFilteredRawMaterials);
  *       500:
  *         description: Server error
  */
-router.get("/:class_type", getRawMaterialsByClass);
-
 /**
  * @swagger
  * /api/raw_material/{class_type}/{id}:
@@ -323,8 +321,12 @@ router.get("/:class_type", getRawMaterialsByClass);
  *         description: Raw material not found
  *       500:
  *         description: Server error
- */
-router.get("/:class_type/:id", getRawMaterialByClassAndId);
+*/
+router.get("/class/:class_type/:id", getRawMaterialByClassAndId);
+
+router.get("/class/:class_type", getRawMaterialsByClass);
+
+router.get('/:id', getRawMaterialById);
 
 /**
  * @swagger
@@ -378,7 +380,6 @@ router.get('/', getAllRawMaterials);
  *       404:
  *         description: Raw material not found
  */
-router.get('/:id', getRawMaterialById);
 
 /**
  * @swagger
@@ -497,7 +498,7 @@ router.patch("/rejected/:id", incrementRejectedQty);
  *       500:
  *         description: Server error
  */
-router.patch('/:class_type/:id/transition', transitionQuantity);
+router.patch('/class/:class_type/:id/transition', transitionQuantity);
 
 
 

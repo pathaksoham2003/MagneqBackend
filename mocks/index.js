@@ -105,7 +105,7 @@ const generateRawMaterials = async () => {
 const seedUsers = async () => {
   try {
     const users = JSON.parse(
-      fs.readFileSync(new URL("./users.json", import.meta.url), "utf-8")
+      fs.readFileSync(new URL("./prodUser.json", import.meta.url), "utf-8")
     );
 
     const routePermissionsMap = {};
@@ -234,7 +234,7 @@ const seedCustomers = async () => {
     if (!existingPermission) {
       await RoutePermission.create({
         role: "CUSTOMER",
-        sidebar: ["customer", "create_order", "track_order", "quality"],
+        sidebar: ["customer", "create_order", "invoice", "ledger", "track_order", "quality"],
         support: ["chat", "email"],
         allowed_routes: [
           "/create_order",
@@ -290,12 +290,26 @@ const flushAll = async () => {
 const runSeeder = async () => {
   try {
     await flushAll();
-    const rawMaterials = await generateRawMaterials();
-    await insertFinishedGoods();
+    await seedUsers();
+    await RoutePermission.create({
+      role: "CUSTOMER",
+      sidebar: ["customer", "create_order", "track_order", "invoice", "ledger", "quality"],
+      support: ["chat", "email"],
+      allowed_routes: [
+        "/create_order",
+        "/track_order",
+        "/quality",
+        "/chat",
+        "/email"
+      ],
+    });
+    return;
     await seedUsers();
     await seedNotifications();
     await seedCustomers();
     await seedVendors();
+    const rawMaterials = await generateRawMaterials();
+    await insertFinishedGoods();
   } catch (err) {
     console.error("❌ Seeder failed:", err.message);
   } finally {

@@ -1,7 +1,6 @@
 import DeliveryDetails from "../models/DeliveryDetails.js";
 import Invoice from "../models/Invoice.js";
 import mongoose from "mongoose";
-import Ledger from "../models/Ledger.js";
 
 const getFgModelNumber = (fg) => {
   if (!fg) return "";
@@ -38,24 +37,9 @@ export const createDelivery = async (req, res) => {
       dispatched_by: req.user?._id,
     });
 
-    // 4. Create ledger entries for each invoice (Debit)
-    const ledgerEntries = invoiceDocs.map(inv => ({
-      customer_id: inv.customer_id,
-      invoice_id: inv._id,
-      date: new Date(),
-      type: "DEBIT", // invoice = debit
-      amount: inv.total_invoice_amount,
-      details: `Invoice #${inv.invoice_number} dispatched`,
-    }));
-
-    if (ledgerEntries.length > 0) {
-      await Ledger.insertMany(ledgerEntries);
-    }
-
     return res.status(201).json({
-      message: "Delivery created & ledger updated",
+      message: "Delivery created successfully",
       delivery,
-      ledgerEntries,
     });
   } catch (err) {
     console.error("Error creating delivery:", err);

@@ -9,7 +9,6 @@ export const createFinishedGood = async (req, res) => {
       power,
       ratio,
       type,
-      other_specification = {},
       rate_per_unit ="0" ,
       base_price ,
       gst_slab
@@ -49,7 +48,6 @@ export const createFinishedGood = async (req, res) => {
       power: power.trim(), // now just string
       ratio: ratio.toString().trim(),
       type: type.trim(),
-      other_specification,
       rate_per_unit: mongoose.Types.Decimal128.fromString(rate_per_unit.toString()),
       base_price: mongoose.Types.Decimal128.fromString(base_price.toString()),
       gst_slab:gst_slab,
@@ -125,12 +123,6 @@ export const getFinishedGoodById = async (req, res) => {
       ratio,
       power: power || "", // No `.toString()` needed
       model_number,
-      motor_shaft_diameter: other_specification.motor_shaft_diameter || "",
-      motor_frame_size: other_specification.motor_frame_size || "",
-      rpm: other_specification.rpm || "",
-      nm: other_specification.nm || "",
-      sf: other_specification.sf || "",
-      overhead_load: other_specification.overhead_load || "",
       classA,
       classB,
       classC,
@@ -171,6 +163,73 @@ export const updateFinishedGood = async (req, res) => {
   } catch (error) {
     console.error("Error updating finished good:", error);
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const updateFinishedGoodDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      model,
+      power,
+      ratio,
+      type,
+      base_price,
+      gst_slab
+    } = req.body;
+
+    if (!power || !ratio || !type || !model || !gst_slab) {
+      return res.status(400).json({
+        error: "Model, Power, Type, Ratio, and GST slab are required.",
+      });
+    }
+
+    // Check for duplicate model number (excluding current record)
+    const allFinishedGoods = await FinishedGoods.find({ _id: { $ne: id } });
+    const currentFG = await FinishedGoods.findById(id);
+    
+    if (!currentFG) {
+      return res.status(404).json({ message: "Finished good not found" });
+    }
+
+    const updatedData = {
+      model: model.trim(),
+      power: power.trim(),
+      ratio: ratio.toString().trim(),
+      type: type.trim(),
+      base_price: mongoose.Types.Decimal128.fromString(base_price.toString()),
+      gst_slab: gst_slab,
+    };
+
+    // Check for duplicate model number
+    const isDuplicate = allFinishedGoods.some((fg) => {
+      const existingModelNumber = getFgModelNumber(fg);
+      const newModelNumber = getFgModelNumber({ ...currentFG.toObject(), ...updatedData });
+      return (
+        existingModelNumber === newModelNumber &&
+        (fg.power || "").trim() === power.trim()
+      );
+    });
+
+    if (isDuplicate) {
+      return res.status(409).json({
+        error: "A finished good with the same model number already exists.",
+      });
+    }
+
+    const updatedFG = await FinishedGoods.findByIdAndUpdate(
+      id,
+      updatedData,
+      { new: true }
+    ).populate("raw_materials.raw_material_id");
+
+    res.status(200).json({
+      message: "Finished good updated successfully",
+      finishedGood: updatedFG
+    });
+  } catch (error) {
+    console.error("Error updating finished good details:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 

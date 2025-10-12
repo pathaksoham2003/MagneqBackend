@@ -60,6 +60,7 @@ export const createUser = async (req, res) => {
       const vendor = new Vendors({
         name,
         phone,
+        address,
         created_at: new Date(),
         updated_at: new Date(),
       });
@@ -113,6 +114,7 @@ export const createUser = async (req, res) => {
 export const getFinishedGoods = async (req, res) => {
   try {
     const { model, type, ratio, power, page = 1, limit = 20 } = req.query;
+    const userRole = req.user?.role;
 
     const filter = {};
     if (model) filter.model = model;
@@ -127,7 +129,11 @@ export const getFinishedGoods = async (req, res) => {
       model_number: getFgModelNumber(item),
     }));
 
+    // Conditionally include units field based on user role
     const fields = ["model_number", "model", "power", "ratio", "type"];
+    if (userRole !== "DEVELOPER") {
+      fields.push("units");
+    }
 
     res.status(200).json(
       formatPaginatedResponse(
@@ -217,13 +223,15 @@ export const getUsersByRole = async (req, res) => {
         .sort({createdAt: -1});
 
       const formatted = vendors.map((v) => ({
+        id: v._id,
         name: v.name,
         phone: v.phone,
+        address: v.address,
         created_at: v.createdAt?.toISOString().split("T")[0] || "",
       }));
 
       return res.status(200).json({
-        header: ["Name", "Phone", "Created At"],
+        header: ["Name", "Phone", "Address", "Created At"],
         item: formatted,
         page_no: pageNo,
         total_pages: Math.ceil(totalCount / PAGE_SIZE),
@@ -250,6 +258,7 @@ export const getUsersByRole = async (req, res) => {
       .sort({created_at: -1});
 
     const formattedUsers = users.map((user) => ({
+      id: user._id,
       name: user.name,
       user_name: user.user_name,
       role: user.role,
@@ -334,5 +343,152 @@ export const getAllVendors = async (req, res) => {
   } catch (err) {
     console.error("Error fetching Vendors:", err);
     res.status(500).json({error: "Failed to fetch vendors"});
+  }
+};
+
+export const getSupplierById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supplier = await Vendor.findById(id);
+    
+    if (!supplier) {
+      return res.status(404).json({ error: "Supplier not found" });
+    }
+    
+    res.status(200).json(supplier);
+  } catch (err) {
+    console.error("Error fetching supplier:", err);
+    res.status(500).json({ error: "Failed to fetch supplier" });
+  }
+};
+
+export const updateSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, address } = req.body;
+    
+    if (!name || !phone) {
+      return res.status(400).json({ error: "Name and phone are required" });
+    }
+    
+    const updatedSupplier = await Vendor.findByIdAndUpdate(
+      id,
+      { name, phone, address, updatedAt: new Date() },
+      { new: true }
+    );
+    
+    if (!updatedSupplier) {
+      return res.status(404).json({ error: "Supplier not found" });
+    }
+    
+    res.status(200).json({
+      message: "Supplier updated successfully",
+      supplier: updatedSupplier
+    });
+  } catch (err) {
+    console.error("Error updating supplier:", err);
+    res.status(500).json({ error: "Failed to update supplier" });
+  }
+};
+
+export const getCustomerById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const customer = await Customer.findById(id);
+    
+    if (!customer) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    
+    res.status(200).json(customer);
+  } catch (err) {
+    console.error("Error fetching customer:", err);
+    res.status(500).json({ error: "Failed to fetch customer" });
+  }
+};
+
+export const updateCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, address, pin_code, state, gst_no, phone } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+    
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      id,
+      { 
+        name, 
+        address, 
+        pin_code, 
+        state: state?.toUpperCase(), 
+        gst_no, 
+        phone,
+        updatedAt: new Date() 
+      },
+      { new: true }
+    );
+    
+    if (!updatedCustomer) {
+      return res.status(404).json({ error: "Customer not found" });
+    }
+    
+    res.status(200).json({
+      message: "Customer updated successfully",
+      customer: updatedCustomer
+    });
+  } catch (err) {
+    console.error("Error updating customer:", err);
+    res.status(500).json({ error: "Failed to update customer" });
+  }
+};
+
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.status(200).json(user);
+  } catch (err) {
+    console.error("Error fetching user:", err);
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+};
+
+export const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, role } = req.body;
+    
+    if (!name || !role) {
+      return res.status(400).json({ error: "Name and role are required" });
+    }
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { 
+        name, 
+        role,
+        updated_at: new Date() 
+      },
+      { new: true }
+    );
+    
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser
+    });
+  } catch (err) {
+    console.error("Error updating user:", err);
+    res.status(500).json({ error: "Failed to update user" });
   }
 };
