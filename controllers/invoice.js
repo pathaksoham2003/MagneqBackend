@@ -153,6 +153,8 @@ export const getAllInvoices = async (req, res) => {
     const PAGE_SIZE = 10;
     const searchQuery = req.query.search;
     const customerId = req.query.customer_id;
+    const startDate = req.query.start_date;
+    const endDate = req.query.end_date;
 
     // Build base query
     let query = {};
@@ -160,6 +162,20 @@ export const getAllInvoices = async (req, res) => {
     // Filter by customer ID if provided
     if (customerId) {
       query.customer_id = customerId;
+    }
+
+    // Add date filtering
+    if (startDate || endDate) {
+      query.invoice_date = {};
+      if (startDate) {
+        query.invoice_date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Add one day to end date to include the entire end date
+        const endDateObj = new Date(endDate);
+        endDateObj.setDate(endDateObj.getDate() + 1);
+        query.invoice_date.$lt = endDateObj;
+      }
     }
 
     // Add search functionality

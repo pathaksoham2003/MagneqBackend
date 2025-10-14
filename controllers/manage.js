@@ -158,10 +158,24 @@ export const getRawMaterialsByClass = async (req, res) => {
       class_type: class_type.toUpperCase(),
     });
 
+    // Process data to remove "processed:" prefix for class types A and C
+    const processedData = data.map((item) => {
+      if ((class_type.toUpperCase() === "A" || class_type.toUpperCase() === "C") && 
+          typeof item.quantity === "object" && item.quantity !== null) {
+        // Create a new object without the processed field
+        const { processed, ...otherQuantities } = item.quantity;
+        return {
+          ...item.toObject(),
+          quantity: otherQuantities
+        };
+      }
+      return item;
+    });
+
     const fields = ["class_type", "name", "quantity"];
     res
       .status(200)
-      .json(formatPaginatedResponse(data, fields, Number(page), Number(limit)));
+      .json(formatPaginatedResponse(processedData, fields, Number(page), Number(limit)));
   } catch (e) {
     res.status(400).json(e);
   }

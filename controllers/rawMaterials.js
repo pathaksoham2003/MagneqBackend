@@ -130,12 +130,17 @@ export const getRawMaterialsByClass = async (req, res) => {
     const header = ["Class", "Product Name", "Type", "Quantity", "Stock Status"];
 
     const item = rawMaterials.map((rm) => {
-      const quantityStr =
+      let quantityStr =
         typeof rm.quantity === "object"
           ? Object.entries(rm.quantity || {})
             .map(([k, v]) => `${k}: ${v}`)
             .join(", ")
           : rm.quantity?.toString() || "0";
+
+      // Remove "processed:" prefix for class types A and C
+      if ((class_type === "A" || class_type === "C") && quantityStr.includes("processed:")) {
+        quantityStr = quantityStr.replace(/processed:\s*/g, "");
+      }
 
       // Calculate stock status
       let currentQuantity = 0;
