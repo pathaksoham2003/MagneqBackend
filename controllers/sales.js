@@ -282,35 +282,56 @@ export const approveSale = async (req, res) => {
       });
       sale.total_amount = totalAmount.toFixed(2);
     }
+    
     sale.approved_reject_by = req.user.user_name;
     sale.status = "INPROCESS";
     sale.updated_at = new Date();
     await sale.save();
 
+    // Create or update production records for each finished good
     const productionRecords = [];
 
-      for (const item of sale.finished_goods) {
-        const fg = await FinishedGoods.findById(item.finished_good);
-        if (!fg) continue;
+    for (const item of sale.finished_goods) {
+      const fg = await FinishedGoods.findById(item.finished_good);
+      if (!fg) continue;
 
-        const production = new Production({
+      // Find or create production record for this finished good
+      let production = await Production.findOne({
+        finished_good: fg._id
+      });
+
+      if (production) {
+        // Update existing production quantity
+        production.production_quantity += item.quantity;
+        production.order_quantity += item.quantity;
+        production.quantity += item.quantity;
+        production.updated_at = new Date();
+        await production.save();
+      } else {
+        // Create new production record
+        production = new Production({
           finished_good: fg._id,
-          customer_name: sale.customer_name,
-          order_quantity:item.quantity,
+          customer_name: "N/A",
+          order_quantity: item.quantity,
           quantity: item.quantity,
+          production_quantity: item.quantity,
+          produced_quantity: 0,
           status: "UN_PROCESSED",
           created_at: new Date(),
           updated_at: new Date(),
-          isProduction: false,
         });
 
         await production.save();
-        productionRecords.push(production);
       }
+      
+      productionRecords.push(production);
+    }
     
-    res
-      .status(200)
-      .json({ message: "Sale approved", sale, productions: productionRecords });
+    res.status(200).json({ 
+      message: "Sale approved and production orders created", 
+      sale,
+      productions: productionRecords
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -413,7 +434,8 @@ export const getSaleById = async (req, res) => {
       .populate("customer_created_by");
 
     const header = [
-      "Quantity",
+      "Order Quantity",
+      "Invoiced Quantity",
       "Finished Good",
       "Rate per Unit",
       "Item Total Price",
@@ -438,6 +460,7 @@ export const getSaleById = async (req, res) => {
       return {
         fg_id: item.finished_good._id,
         quantity: item.quantity,
+        invoiced_quantity: item.invoiced_quantity || 0,
         finished_good: getFgModelNumber(item.finished_good),
         rate_per_unit: Number(item.rate_per_unit),
         item_total_price: Number(item.item_total_price),

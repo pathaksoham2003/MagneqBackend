@@ -3,11 +3,10 @@ import {
   createProductionOrder,
   getPendingProductionOrders,
   getProductionDetails,
-  getTransitionDetails,
   makeReady,
   startProduction,
-  updateTransitionDetails,
   addDailyProduction,
+  cleanupDuplicateProductions,
 } from '../controllers/production.js';
 
 const router = express.Router();
@@ -80,10 +79,9 @@ const router = express.Router();
  *                   example: 12
  */
 router.get('/', getPendingProductionOrders);
-router.get('/transition/:id', getTransitionDetails);
-router.put('/transition/:id', updateTransitionDetails);
 router.post('/create_pro',createProductionOrder);
 router.post('/daily-production', addDailyProduction);
+router.post('/cleanup-duplicates', cleanupDuplicateProductions);
 
 /**
  * @swagger

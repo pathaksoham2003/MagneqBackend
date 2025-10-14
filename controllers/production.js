@@ -30,7 +30,6 @@ export const createProductionOrder = async (req, res) => {
         finished_good: finishedGood._id,
         quantity: quantity,
         status: "UN_PROCESSED",
-        isProduction: true,
       });
       await production.save();
       productionRecords.push(production);
@@ -53,7 +52,7 @@ export const getPendingProductionOrders = async (req, res) => {
     const search = req.query.search;
 
     const query = {
-      status: { $ne: "READY" },
+      production_quantity: { $gt: 0 },
     };
 
     if (search) {
@@ -101,26 +100,18 @@ export const getPendingProductionOrders = async (req, res) => {
       return {
         id: production._id,
         data: [
-          `PRO-${production.pro_id}`,
-          production.customer_name || "N/A",
-          production.createdAt,
           orderDetails,
-          production.quantity,
-          // production.status === "UN_PROCESSED"
-          //   ? statusDetail
-          //   : production.status,
+          production.production_quantity,
+          production.produced_quantity,
         ],
       };
     });
 
     res.status(200).json({
       header: [
-        "Production Id",
-        "Customer Name",
-        "Date of Creation",
-        "Order Details",
-        "Quantity",
-        // "Status",
+        "Finished Good",
+        "Production Quantity",
+        "Produced Quantity",
       ],
       item: items,
       page_no: page,
@@ -181,8 +172,8 @@ export const getProductionDetails = async (req, res) => {
         ratio: finishedGood.ratio,
       },
       quantity: production.quantity,
-      start_quantity: production.start_quantity,
-      ready_quantity: production.ready_quantity,
+      production_quantity: production.production_quantity,
+      produced_quantity: production.produced_quantity,
       status: production.status,
       created_at: production.created_at,
       updated_at: production.updated_at,
@@ -275,76 +266,64 @@ export const makeReady = async (req, res) => {
       $inc: { units: 1 },
     });
 
-    if (production.isProduction) {
-      production.status = "COMPLETED";
-      production.updated_at = new Date();
-      await production.save();
+    production.status = "COMPLETED";
+    production.updated_at = new Date();
+    await production.save();
 
-      return res.status(200).json({
-        message: "Standalone production marked as COMPLETED.",
-      });
-    } else {
-      production.status = "READY";
-      production.updated_at = new Date();
-      await production.save();
-
-      // const salesRecord = await Sales.findOne({
-      //   order_id: production.order_id,
-      // });
-
-      // if (salesRecord) {
-      //   const fgItem = salesRecord.finished_goods.find(
-      //     (item) =>
-      //       item.finished_good.toString() === production.finished_good.toString()
-      //   );
-
-      //   if (fgItem) {
-      //     fgItem.status = true;
-      //   }
-
-      //   const allProcessed = salesRecord.finished_goods.every(
-      //     (item) => item.status === true
-      //   );
-
-      //   // if (allProcessed) {
-      //   //   salesRecord.status = "PROCESSED";
-      //   // }
-
-      //   await salesRecord.save();
-      // }
-
-      return res.status(200).json({
-        message: "Production marked as READY and sales order updated.",
-      });
-    }
+    return res.status(200).json({
+      message: "Production marked as COMPLETED.",
+    });
   } catch (err) {
     console.error("Error in makeReady:", err);
     return res.status(500).json({ error: err.message });
   }
 };
 
-export const getTransitionDetails = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const production = await Production.findById(id);
 
-    if (!production) {
-      return res.status(404).json({ message: "Production not found" });
+// Helper function to ensure only one production record per finished good
+const ensureSingleProductionPerFinishedGood = async (finishedGoodId) => {
+  const productions = await Production.find({
+    finished_good: finishedGoodId
+  });
+
+  if (productions.length > 1) {
+    // Merge all production records into the first one
+    const mainProduction = productions[0];
+    const otherProductions = productions.slice(1);
+
+    // Sum up all quantities
+    let totalOrderQuantity = mainProduction.order_quantity;
+    let totalQuantity = mainProduction.quantity;
+    let totalProductionQuantity = mainProduction.production_quantity;
+    let totalProducedQuantity = mainProduction.produced_quantity;
+
+    for (const prod of otherProductions) {
+      totalOrderQuantity += prod.order_quantity || 0;
+      totalQuantity += prod.quantity || 0;
+      totalProductionQuantity += prod.production_quantity || 0;
+      totalProducedQuantity += prod.produced_quantity || 0;
     }
 
-    res.json({
-      quantity: production.quantity,
-      start_quantity: production.start_quantity,
-      ready_quantity: production.ready_quantity,
-      status: production.status,
+    // Update main production record
+    mainProduction.order_quantity = totalOrderQuantity;
+    mainProduction.quantity = totalQuantity;
+    mainProduction.production_quantity = totalProductionQuantity;
+    mainProduction.produced_quantity = totalProducedQuantity;
+    mainProduction.updated_at = new Date();
+    await mainProduction.save();
+
+    // Delete other production records
+    await Production.deleteMany({
+      _id: { $in: otherProductions.map(p => p._id) }
     });
-  } catch (err) {
-    console.error("Error in getTransitionDetails:", err);
-    res.status(500).json({ error: err.message });
+
+    return mainProduction;
   }
+
+  return productions[0] || null;
 };
 
-// PUT transition details
+// Add daily production directly to finished goods
 export const addDailyProduction = async (req, res) => {
   try {
     const { finished_goods } = req.body;
@@ -393,6 +372,78 @@ export const addDailyProduction = async (req, res) => {
         continue;
       }
 
+      // Ensure only one production record per finished good and get it
+      let production = await ensureSingleProductionPerFinishedGood(finishedGood._id);
+
+      if (!production) {
+        errors.push({
+          item: { model, type, ratio, power, quantity },
+          error: "No production record found for this finished good"
+        });
+        continue;
+      }
+
+      // Check if we have enough production quantity to produce
+      if (production.production_quantity < quantity) {
+        errors.push({
+          item: { model, type, ratio, power, quantity },
+          error: `Insufficient production quantity. Available: ${production.production_quantity}, Requested: ${quantity}`
+        });
+        continue;
+      }
+
+      // Check raw material availability before production
+      let canProduce = true;
+      const rawMaterialDeductions = [];
+
+      for (const rm of finishedGood.raw_materials) {
+        const material = await RawMaterials.findById(rm.raw_material_id);
+        if (!material || typeof material.quantity !== "object") {
+          errors.push({
+            item: { model, type, ratio, power, quantity },
+            error: `Invalid raw material found: ${material?.name || 'Unknown'}`
+          });
+          canProduce = false;
+          break;
+        }
+
+        const requiredQty = rm.quantity * quantity;
+        const availableQty = material.quantity.processed || 0;
+
+        if (availableQty < requiredQty) {
+          errors.push({
+            item: { model, type, ratio, power, quantity },
+            error: `Insufficient raw material: ${material.name || 'Unknown'} (Required: ${requiredQty}, Available: ${availableQty})`
+          });
+          canProduce = false;
+          break;
+        }
+
+        rawMaterialDeductions.push({
+          material,
+          requiredQty,
+          availableQty
+        });
+      }
+
+      if (!canProduce) {
+        continue;
+      }
+
+      // Deduct raw materials
+      for (const deduction of rawMaterialDeductions) {
+        deduction.material.quantity.processed = deduction.availableQty - deduction.requiredQty;
+        deduction.material.updated_at = new Date();
+        deduction.material.markModified("quantity");
+        await deduction.material.save();
+      }
+
+      // Update production quantities
+      production.production_quantity -= quantity; // Reduce pending quantity
+      production.produced_quantity += quantity;   // Increase produced quantity
+      production.updated_at = new Date();
+      await production.save();
+
       // Increase the finished good stock
       const currentUnits = finishedGood.units || 0;
       finishedGood.units = currentUnits + quantity;
@@ -409,6 +460,12 @@ export const addDailyProduction = async (req, res) => {
           previous_units: currentUnits,
           new_units: finishedGood.units,
           added_quantity: quantity
+        },
+        production: {
+          id: production._id,
+          pro_id: production.pro_id,
+          production_quantity_remaining: production.production_quantity,
+          produced_quantity: production.produced_quantity
         }
       });
     }
@@ -421,7 +478,7 @@ export const addDailyProduction = async (req, res) => {
     }
 
     res.status(201).json({
-      message: `Successfully added ${results.length} finished good(s) to stock`,
+      message: `Successfully added production for ${results.length} finished good(s)`,
       results,
       errors: errors.length > 0 ? errors : undefined
     });
@@ -431,90 +488,60 @@ export const addDailyProduction = async (req, res) => {
   }
 };
 
-export const updateTransitionDetails = async (req, res) => {
+// Clean up duplicate production records (admin function)
+export const cleanupDuplicateProductions = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { from, qty } = req.body; // from = "quantity" | "start_quantity"
+    // Get all finished goods
+    const finishedGoods = await FinishedGoods.find({});
+    let cleanedCount = 0;
 
-    const production = await Production.findById(id);
-    if (!production) {
-      return res.status(404).json({ message: "Production not found" });
-    }
+    for (const fg of finishedGoods) {
+      const productions = await Production.find({
+        finished_good: fg._id
+      });
 
-    if (!["quantity", "start_quantity"].includes(from)) {
-      return res.status(400).json({ message: "Invalid from stage" });
-    }
+      if (productions.length > 1) {
+        // Merge all production records into the first one
+        const mainProduction = productions[0];
+        const otherProductions = productions.slice(1);
 
-    if (qty <= 0 || qty > production[from]) {
-      return res.status(400).json({ message: "Invalid transition quantity" });
-    }
+        // Sum up all quantities
+        let totalOrderQuantity = mainProduction.order_quantity || 0;
+        let totalQuantity = mainProduction.quantity || 0;
+        let totalProductionQuantity = mainProduction.production_quantity || 0;
+        let totalProducedQuantity = mainProduction.produced_quantity || 0;
 
-    let to;
-    if (from === "quantity") to = "start_quantity";
-    if (from === "start_quantity") to = "ready_quantity";
-
-    // ✅ Check raw materials only if moving from "quantity" → "start_quantity"
-    if (from === "quantity") {
-      const finishedGood = await FinishedGoods.findById(
-        production.finished_good
-      );
-      if (!finishedGood) {
-        return res.status(404).json({ message: "Finished good not found" });
-      }
-
-      for (const rm of finishedGood.raw_materials) {
-        const material = await RawMaterials.findById(rm.raw_material_id);
-        if (!material || typeof material.quantity !== "object") {
-          return res
-            .status(400)
-            .json({ message: "Invalid raw material found" });
+        for (const prod of otherProductions) {
+          totalOrderQuantity += prod.order_quantity || 0;
+          totalQuantity += prod.quantity || 0;
+          totalProductionQuantity += prod.production_quantity || 0;
+          totalProducedQuantity += prod.produced_quantity || 0;
         }
 
-        const requiredQty = rm.quantity * qty;
-        const availableQty = material.quantity.processed || 0;
+        // Update main production record
+        mainProduction.order_quantity = totalOrderQuantity;
+        mainProduction.quantity = totalQuantity;
+        mainProduction.production_quantity = totalProductionQuantity;
+        mainProduction.produced_quantity = totalProducedQuantity;
+        mainProduction.updated_at = new Date();
+        await mainProduction.save();
 
-        if (availableQty < requiredQty) {
-          return res.status(400).json({
-            message: `Not enough RM for class ${material.class_type} for ${
-              material.name || "Unnamed Material"
-            }`,
-          });
-        }
+        // Delete other production records
+        await Production.deleteMany({
+          _id: { $in: otherProductions.map(p => p._id) }
+        });
 
-        // Deduct processed raw materials
-        material.quantity.processed = availableQty - requiredQty;
-        material.updated_at = new Date();
-        material.markModified("quantity");
-        await material.save();
+        cleanedCount += otherProductions.length;
       }
     }
 
-    // ✅ Update production quantities
-    production[from] -= qty;
-    production[to] += qty;
-    production.updated_at = new Date();
-
-    await production.save();
-    
-    if (to === "ready_quantity") {
-      const finishedGood = await FinishedGoods.findById(
-        production.finished_good
-      );
-      if (!finishedGood) {
-        return res.status(404).json({ message: "Finished good not found" });
-      }
-
-      finishedGood.units = (finishedGood.units || 0) + qty;
-      finishedGood.updated_at = new Date();
-      await finishedGood.save();
-    }
-
-    return res.json({
-      message: `Successfully moved ${qty} from ${from} → ${to}`,
-      production,
+    res.status(200).json({
+      message: `Cleaned up ${cleanedCount} duplicate production records`,
+      cleanedCount
     });
   } catch (err) {
-    console.error("Error in updateTransitionDetails:", err);
+    console.error("Error in cleanupDuplicateProductions:", err);
     res.status(500).json({ error: err.message });
   }
 };
+
