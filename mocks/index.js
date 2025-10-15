@@ -303,13 +303,13 @@ const runSeeder = async () => {
         "/email"
       ],
     });
-    return;
-    await seedUsers();
-    await seedNotifications();
     await seedCustomers();
     await seedVendors();
     const rawMaterials = await generateRawMaterials();
     await insertFinishedGoods();
+    return;
+    await seedUsers();
+    await seedNotifications();
   } catch (err) {
     console.error("❌ Seeder failed:", err.message);
   } finally {

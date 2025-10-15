@@ -74,7 +74,15 @@ export const createInvoice = async (req, res) => {
 
       processedItems.push({
         sales_item: fg_id,
-        finished_good: fg._id,
+        finished_good: fg._id, // Keep for backward compatibility
+        finished_good_snapshot: {
+          model: fg.model,
+          type: fg.type,
+          ratio: fg.ratio,
+          power: fg.power,
+          other_specification: fg.other_specification,
+          gst_slab: fg.gst_slab,
+        },
         description: `${fg.model} ${fg.type} ${fg.ratio} ${fg.power}`,
         invoiced_quantity: quantity,
         rate_per_unit: rate,
@@ -215,9 +223,15 @@ export const getAllInvoices = async (req, res) => {
 
     const items = invoices.map((inv) => {
       const invoiceDetails = inv.items.map((it) => {
-        const fgData = inv.sales_id?.finished_goods.find(
-          (fg) => fg.finished_good?._id.toString() === it.finished_good?.toString()
-        )?.finished_good;
+        // Use stored snapshot if available, otherwise fall back to populated data
+        let fgData;
+        if (it.finished_good_snapshot) {
+          fgData = it.finished_good_snapshot;
+        } else {
+          fgData = inv.sales_id?.finished_goods.find(
+            (fg) => fg.finished_good?._id.toString() === it.finished_good?.toString()
+          )?.finished_good;
+        }
         return `${getFgModelNumber(fgData)}/${it.invoiced_quantity}`;
       });
 
@@ -340,26 +354,33 @@ export const getInvoiceById = async (req, res) => {
         id: invoice.sales_id?._id,
         sales_order_number: invoice.sales_id?.order_id,
       },
-      items: invoice.items.map((item) => ({
-        sales_item: item.sales_item,
-        finished_good: {
-          id: item.finished_good?._id,
-          model: item.finished_good?.model,
-          type: item.finished_good?.type,
-          ratio: item.finished_good?.ratio,
-          power: item.finished_good?.power,
-        },
-        description: item.description,
-        invoiced_quantity: item.invoiced_quantity,
-        rate_per_unit: item.rate_per_unit ? Number(item.rate_per_unit) : 0,
-        invoiced_amount: item.invoiced_amount ? Number(item.invoiced_amount) : 0,
-        taxes: item.taxes.map((t) => ({
-          type: t.type,
-          percentage: t.percentage ? Number(t.percentage) : 0,
-          amount: t.amount ? Number(t.amount) : 0,
-        })),
-        total_with_tax: item.total_with_tax ? Number(item.total_with_tax) : 0,
-      })),
+      items: invoice.items.map((item) => {
+        // Use stored snapshot if available, otherwise fall back to populated data for backward compatibility
+        const fgData = item.finished_good_snapshot || item.finished_good;
+        
+        return {
+          sales_item: item.sales_item,
+          finished_good: {
+            id: item.finished_good?._id || item.finished_good,
+            model: fgData?.model,
+            type: fgData?.type,
+            ratio: fgData?.ratio,
+            power: fgData?.power,
+            other_specification: fgData?.other_specification,
+            gst_slab: fgData?.gst_slab ? Number(fgData.gst_slab) : 0,
+          },
+          description: item.description,
+          invoiced_quantity: item.invoiced_quantity,
+          rate_per_unit: item.rate_per_unit ? Number(item.rate_per_unit) : 0,
+          invoiced_amount: item.invoiced_amount ? Number(item.invoiced_amount) : 0,
+          taxes: item.taxes.map((t) => ({
+            type: t.type,
+            percentage: t.percentage ? Number(t.percentage) : 0,
+            amount: t.amount ? Number(t.amount) : 0,
+          })),
+          total_with_tax: item.total_with_tax ? Number(item.total_with_tax) : 0,
+        };
+      }),
       total_invoice_amount: invoice.total_invoice_amount ? Number(invoice.total_invoice_amount) : 0,
       createdAt: invoice.createdAt ? formatDateTime(invoice.createdAt) : null,
     };

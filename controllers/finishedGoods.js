@@ -1,6 +1,37 @@
 import FinishedGoods from "../models/FinishedGoods.js";
+import Sales from "../models/Sales.js";
 import mongoose from "mongoose";
 import {getFgModelNumber} from "../utils/helper.js";
+
+// Helper function to check if finished good is used in pending sales orders
+const checkPendingSalesOrders = async (finishedGoodId) => {
+  try {
+    // Find sales orders that are not completed (not PROCESSED, DELIVERED, or CANCELLED)
+    // and contain the finished good
+    const pendingSales = await Sales.find({
+      status: { $nin: ["PROCESSED", "DELIVERED", "CANCELLED"] },
+      "finished_goods.finished_good": finishedGoodId
+    }).select("order_id status customer_name");
+
+    if (pendingSales.length > 0) {
+      const salesInfo = pendingSales.map(sale => ({
+        order_id: sale.order_id,
+        status: sale.status,
+        customer_name: sale.customer_name
+      }));
+      
+      return {
+        hasPending: true,
+        salesOrders: salesInfo
+      };
+    }
+
+    return { hasPending: false, salesOrders: [] };
+  } catch (error) {
+    console.error("Error checking pending sales orders:", error);
+    throw error;
+  }
+};
 
 export const createFinishedGood = async (req, res) => {
   try {
@@ -139,6 +170,22 @@ export const updateFinishedGood = async (req, res) => {
     const { id } = req.params;
     const { classA = [], classB = [], classC = [] } = req.body;
 
+    // Check if finished good exists
+    const currentFG = await FinishedGoods.findById(id);
+    if (!currentFG) {
+      return res.status(404).json({ message: "Finished good not found" });
+    }
+
+    // Check if finished good is used in pending sales orders
+    const pendingCheck = await checkPendingSalesOrders(id);
+    if (pendingCheck.hasPending) {
+      return res.status(400).json({
+        error: "Cannot update finished good. It is currently used in pending sales orders.",
+        message: "Please complete or cancel the following sales orders before updating this finished good:",
+        pendingSalesOrders: pendingCheck.salesOrders
+      });
+    }
+
     // Combine and sanitize raw materials
     const allRawMaterials = [...classA, ...classB, ...classC];
 
@@ -184,13 +231,24 @@ export const updateFinishedGoodDetails = async (req, res) => {
       });
     }
 
-    // Check for duplicate model number (excluding current record)
-    const allFinishedGoods = await FinishedGoods.find({ _id: { $ne: id } });
     const currentFG = await FinishedGoods.findById(id);
     
     if (!currentFG) {
       return res.status(404).json({ message: "Finished good not found" });
     }
+
+    // Check if finished good is used in pending sales orders
+    const pendingCheck = await checkPendingSalesOrders(id);
+    if (pendingCheck.hasPending) {
+      return res.status(400).json({
+        error: "Cannot update finished good. It is currently used in pending sales orders.",
+        message: "Please complete or cancel the following sales orders before updating this finished good:",
+        pendingSalesOrders: pendingCheck.salesOrders
+      });
+    }
+
+    // Check for duplicate model number (excluding current record)
+    const allFinishedGoods = await FinishedGoods.find({ _id: { $ne: id } });
 
     const updatedData = {
       model: model.trim(),
