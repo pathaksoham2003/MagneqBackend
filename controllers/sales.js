@@ -301,20 +301,18 @@ export const approveSale = async (req, res) => {
       });
 
       if (production) {
-        // Update existing production quantity
-        production.production_quantity += item.quantity;
-        production.order_quantity += item.quantity;
-        production.quantity += item.quantity;
-        production.updated_at = new Date();
+        // Update existing production - add to total quantity and pending production
+        production.quantity += item.quantity; // Add to total sales quantity
+        production.production_quantity += item.quantity; // Add to pending production
+        production.updated_at = new Date()
         await production.save();
       } else {
         // Create new production record
         production = new Production({
           finished_good: fg._id,
           customer_name: "N/A",
-          order_quantity: item.quantity,
-          quantity: item.quantity,
-          production_quantity: item.quantity,
+          quantity: item.quantity, // Total sales quantity
+          production_quantity: item.quantity, // Pending production = total quantity initially
           produced_quantity: 0,
           status: "UN_PROCESSED",
           created_at: new Date(),

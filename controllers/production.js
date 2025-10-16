@@ -52,7 +52,7 @@ export const getPendingProductionOrders = async (req, res) => {
     const search = req.query.search;
 
     const query = {
-      production_quantity: { $gt: 0 },
+      quantity: { $gt: 0 },
     };
 
     if (search) {
@@ -101,8 +101,9 @@ export const getPendingProductionOrders = async (req, res) => {
         id: production._id,
         data: [
           orderDetails,
-          production.production_quantity,
-          production.produced_quantity,
+          ((production.production_quantity || 0) + (production.produced_quantity || 0)), // Total Production Quantity
+          ((production.production_quantity || 0) + (production.produced_quantity || 0) - fg.units || 0), // Production Pending Quantity
+          fg.units || 0, // Current FG Stock Quantity
         ],
       };
     });
@@ -110,8 +111,9 @@ export const getPendingProductionOrders = async (req, res) => {
     res.status(200).json({
       header: [
         "Finished Good",
-        "Production Quantity",
-        "Produced Quantity",
+        "Total Sales Quantity",
+        "Production Pending Quantity",
+        "Current FG Stock Quantity",
       ],
       item: items,
       page_no: page,
@@ -133,7 +135,9 @@ export const getProductionDetails = async (req, res) => {
       return res.status(404).json({ message: "Production not found" });
 
     const finishedGood = production.finished_good;
-    const requiredQuantity = production.quantity || 1;
+    // Use Production Pending Quantity for raw material requirements calculation
+    const totalSalesQuantity = (production.production_quantity || 0) + (production.produced_quantity || 0);
+    const requiredQuantity = totalSalesQuantity - (finishedGood.units || 0);
 
     const classA = [],
       classB = [],
@@ -170,10 +174,13 @@ export const getProductionDetails = async (req, res) => {
         model: getModelNumber(finishedGood.model),
         type: finishedGood.type,
         ratio: finishedGood.ratio,
+        units: finishedGood.units || 0,
       },
       quantity: production.quantity,
       production_quantity: production.production_quantity,
       produced_quantity: production.produced_quantity,
+      total_sales_quantity: totalSalesQuantity,
+      production_pending_quantity: requiredQuantity,
       status: production.status,
       created_at: production.created_at,
       updated_at: production.updated_at,
@@ -323,7 +330,7 @@ const ensureSingleProductionPerFinishedGood = async (finishedGoodId) => {
   return productions[0] || null;
 };
 
-// Add daily production directly to finished goods
+// Add daily production directly to finished goods (allows excess production)
 export const addDailyProduction = async (req, res) => {
   try {
     const { finished_goods } = req.body;
@@ -372,29 +379,10 @@ export const addDailyProduction = async (req, res) => {
         continue;
       }
 
-      // Ensure only one production record per finished good and get it
-      let production = await ensureSingleProductionPerFinishedGood(finishedGood._id);
-
-      if (!production) {
-        errors.push({
-          item: { model, type, ratio, power, quantity },
-          error: "No production record found for this finished good"
-        });
-        continue;
-      }
-
-      // Check if we have enough production quantity to produce
-      if (production.production_quantity < quantity) {
-        errors.push({
-          item: { model, type, ratio, power, quantity },
-          error: `Insufficient production quantity. Available: ${production.production_quantity}, Requested: ${quantity}`
-        });
-        continue;
-      }
-
-      // Check raw material availability before production
-      let canProduce = true;
+      // Check raw material availability and calculate maximum producible quantity
+      let maxProducibleQuantity = Infinity;
       const rawMaterialDeductions = [];
+      const rawMaterialLimits = [];
 
       for (const rm of finishedGood.raw_materials) {
         const material = await RawMaterials.findById(rm.raw_material_id);
@@ -403,31 +391,48 @@ export const addDailyProduction = async (req, res) => {
             item: { model, type, ratio, power, quantity },
             error: `Invalid raw material found: ${material?.name || 'Unknown'}`
           });
-          canProduce = false;
+          maxProducibleQuantity = 0;
           break;
         }
 
+        const availableQty = material.quantity.processed || 0;
+        const maxFromThisMaterial = Math.floor(availableQty / rm.quantity);
+        
+        rawMaterialLimits.push({
+          material: material.name || 'Unknown',
+          available: availableQty,
+          requiredPerUnit: rm.quantity,
+          maxProducible: maxFromThisMaterial
+        });
+
+        maxProducibleQuantity = Math.min(maxProducibleQuantity, maxFromThisMaterial);
+      }
+
+      // Check if we can produce the requested quantity
+      if (maxProducibleQuantity < quantity) {
+        const limitingMaterials = rawMaterialLimits.filter(rm => rm.maxProducible < quantity);
+        const limitingMaterialNames = limitingMaterials.map(rm => `${rm.material} (max: ${rm.maxProducible})`).join(', ');
+        
+        errors.push({
+          item: { model, type, ratio, power, quantity },
+          error: `Insufficient raw materials. Maximum producible: ${maxProducibleQuantity}. Limiting materials: ${limitingMaterialNames}`,
+          maxProducible: maxProducibleQuantity,
+          rawMaterialLimits: rawMaterialLimits
+        });
+        continue;
+      }
+
+      // Prepare raw material deductions
+      for (const rm of finishedGood.raw_materials) {
+        const material = await RawMaterials.findById(rm.raw_material_id);
         const requiredQty = rm.quantity * quantity;
         const availableQty = material.quantity.processed || 0;
-
-        if (availableQty < requiredQty) {
-          errors.push({
-            item: { model, type, ratio, power, quantity },
-            error: `Insufficient raw material: ${material.name || 'Unknown'} (Required: ${requiredQty}, Available: ${availableQty})`
-          });
-          canProduce = false;
-          break;
-        }
 
         rawMaterialDeductions.push({
           material,
           requiredQty,
           availableQty
         });
-      }
-
-      if (!canProduce) {
-        continue;
       }
 
       // Deduct raw materials
@@ -438,11 +443,31 @@ export const addDailyProduction = async (req, res) => {
         await deduction.material.save();
       }
 
-      // Update production quantities
-      production.production_quantity -= quantity; // Reduce pending quantity
-      production.produced_quantity += quantity;   // Increase produced quantity
-      production.updated_at = new Date();
-      await production.save();
+      // Find or create production record for this finished good
+      let production = await ensureSingleProductionPerFinishedGood(finishedGood._id);
+
+      if (!production) {
+        // Create new production record for excess production
+        production = new Production({
+          finished_good: finishedGood._id,
+          customer_name: "Excess Production",
+          order_quantity: 0,
+          quantity: 0,
+          production_quantity: 0,
+          produced_quantity: quantity,
+          status: "COMPLETED",
+          created_at: new Date(),
+          updated_at: new Date(),
+        });
+        await production.save();
+      } else {
+        // Update existing production record
+        // Increase produced quantity and decrease production_quantity (pending)
+        production.produced_quantity += quantity;
+        production.production_quantity = Math.max(0, production.production_quantity - quantity);
+        production.updated_at = new Date();
+        await production.save();
+      }
 
       // Increase the finished good stock
       const currentUnits = finishedGood.units || 0;
@@ -541,6 +566,133 @@ export const cleanupDuplicateProductions = async (req, res) => {
     });
   } catch (err) {
     console.error("Error in cleanupDuplicateProductions:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Recalculate production quantities based on remaining sales orders
+export const recalculateProductionQuantities = async (req, res) => {
+  try {
+    const { finished_good_id } = req.body;
+    
+    let query = {};
+    if (finished_good_id) {
+      query.finished_good = finished_good_id;
+    }
+
+    const productions = await Production.find(query).populate('finished_good');
+    let updatedCount = 0;
+
+    for (const production of productions) {
+      // Get all sales orders for this finished good that are not fully invoiced
+      const salesOrders = await Sales.find({
+        'finished_goods.finished_good': production.finished_good._id,
+        status: { $in: ['INPROCESS', 'PROCESSED'] }
+      });
+
+      let totalRequiredQuantity = 0;
+      
+      for (const salesOrder of salesOrders) {
+        const salesItem = salesOrder.finished_goods.find(
+          item => item.finished_good.toString() === production.finished_good._id.toString()
+        );
+        
+        if (salesItem) {
+          // Calculate remaining quantity needed (total ordered - already invoiced)
+          const remainingQuantity = salesItem.quantity - (salesItem.invoiced_quantity || 0);
+          totalRequiredQuantity += Math.max(0, remainingQuantity);
+        }
+      }
+
+      // Update production quantity
+      const oldProductionQuantity = production.production_quantity;
+      production.production_quantity = totalRequiredQuantity;
+      production.updated_at = new Date();
+      await production.save();
+
+      if (oldProductionQuantity !== totalRequiredQuantity) {
+        updatedCount++;
+        console.log(`Updated production for ${production.finished_good.model}: ${oldProductionQuantity} -> ${totalRequiredQuantity}`);
+      }
+    }
+
+    res.status(200).json({
+      message: `Recalculated production quantities for ${updatedCount} production records`,
+      updatedCount,
+      totalChecked: productions.length
+    });
+  } catch (err) {
+    console.error("Error in recalculateProductionQuantities:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Check raw material availability for a finished good
+export const checkRawMaterialAvailability = async (req, res) => {
+  try {
+    const { model, type, ratio, power } = req.query;
+
+    if (!model || !type || !ratio || !power) {
+      return res.status(400).json({
+        error: "All parameters (model, type, ratio, power) are required"
+      });
+    }
+
+    // Find the finished good
+    const finishedGood = await FinishedGoods.findOne({
+      model,
+      type,
+      ratio,
+      power,
+    });
+
+    if (!finishedGood) {
+      return res.status(404).json({
+        error: "Finished good not found"
+      });
+    }
+
+    // Check raw material availability
+    let maxProducibleQuantity = Infinity;
+    const rawMaterialLimits = [];
+
+    for (const rm of finishedGood.raw_materials) {
+      const material = await RawMaterials.findById(rm.raw_material_id);
+      if (!material || typeof material.quantity !== "object") {
+        return res.status(400).json({
+          error: `Invalid raw material found: ${material?.name || 'Unknown'}`
+        });
+      }
+
+      const availableQty = material.quantity.processed || 0;
+      const maxFromThisMaterial = Math.floor(availableQty / rm.quantity);
+      
+      rawMaterialLimits.push({
+        material_id: material._id,
+        material_name: material.name || 'Unknown',
+        material_type: material.type || 'Unknown',
+        available_quantity: availableQty,
+        required_per_unit: rm.quantity,
+        max_producible: maxFromThisMaterial
+      });
+
+      maxProducibleQuantity = Math.min(maxProducibleQuantity, maxFromThisMaterial);
+    }
+
+    res.status(200).json({
+      finished_good: {
+        id: finishedGood._id,
+        model: finishedGood.model,
+        type: finishedGood.type,
+        ratio: finishedGood.ratio,
+        power: finishedGood.power
+      },
+      max_producible_quantity: maxProducibleQuantity,
+      raw_material_limits: rawMaterialLimits,
+      can_produce: maxProducibleQuantity > 0
+    });
+  } catch (err) {
+    console.error("Error in checkRawMaterialAvailability:", err);
     res.status(500).json({ error: err.message });
   }
 };

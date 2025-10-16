@@ -1,6 +1,7 @@
 import Invoice from "../models/Invoice.js";
 import Sales from "../models/Sales.js";
 import FinishedGoods from "../models/FinishedGoods.js";
+import Production from "../models/Production.js";
 import { calculateTaxes } from "../utils/taxCalculator.js";
 import Customers from "../models/Customers.js";
 import { formatDateTime, getFgModelNumber } from "../utils/helper.js";
@@ -123,6 +124,9 @@ export const createInvoice = async (req, res) => {
         { new: true }
       );
     }
+
+    // 6.1. Update production quantities - reduce by invoiced amounts
+    await updateProductionQuantitiesOnInvoicing(items);
 
     // 7. Create ledger entry for the invoice (Debit)
     const ledgerEntry = await Ledger.create({
@@ -512,6 +516,9 @@ export const deleteInvoice = async (req, res) => {
       );
     }
 
+    // Restore production quantities
+    await restoreProductionQuantitiesOnInvoiceDeletion(invoice.items);
+
     // Remove ledger entry
     await Ledger.deleteOne({ invoice_id: invoice._id });
 
@@ -528,5 +535,56 @@ export const deleteInvoice = async (req, res) => {
   } catch (error) {
     console.error("Error deleting invoice:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Helper function to update production quantities when invoicing
+const updateProductionQuantitiesOnInvoicing = async (items) => {
+  try {
+    for (const { fg_id, quantity } of items) {
+      // Find production record for this finished good
+      const production = await Production.findOne({
+        finished_good: fg_id
+      });
+
+      if (production) {
+        // Reduce total production quantity by the invoiced amount
+        // This represents that we no longer need to produce these items
+        const newProductionQuantity = Math.max(0, production.production_quantity - quantity);
+        
+        production.production_quantity = newProductionQuantity;
+        production.updated_at = new Date();
+        await production.save();
+
+        console.log(`Updated production for FG ${fg_id}: reduced production_quantity by ${quantity}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error updating production quantities on invoicing:", error);
+    // Don't throw error here as invoice creation should still succeed
+  }
+};
+
+// Helper function to restore production quantities when invoice is deleted
+const restoreProductionQuantitiesOnInvoiceDeletion = async (items) => {
+  try {
+    for (const item of items) {
+      // Find production record for this finished good
+      const production = await Production.findOne({
+        finished_good: item.finished_good
+      });
+
+      if (production) {
+        // Restore production_quantity by the invoiced amount
+        production.production_quantity += item.invoiced_quantity;
+        production.updated_at = new Date();
+        await production.save();
+
+        console.log(`Restored production for FG ${item.finished_good}: increased production_quantity by ${item.invoiced_quantity}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error restoring production quantities on invoice deletion:", error);
+    // Don't throw error here as invoice deletion should still succeed
   }
 };

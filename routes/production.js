@@ -7,6 +7,8 @@ import {
   startProduction,
   addDailyProduction,
   cleanupDuplicateProductions,
+  recalculateProductionQuantities,
+  checkRawMaterialAvailability,
 } from '../controllers/production.js';
 
 const router = express.Router();
@@ -82,6 +84,8 @@ router.get('/', getPendingProductionOrders);
 router.post('/create_pro',createProductionOrder);
 router.post('/daily-production', addDailyProduction);
 router.post('/cleanup-duplicates', cleanupDuplicateProductions);
+router.post('/recalculate-quantities', recalculateProductionQuantities);
+router.get('/check-raw-materials', checkRawMaterialAvailability);
 
 /**
  * @swagger
