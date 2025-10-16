@@ -295,6 +295,8 @@ export const getInvoicesByCustomer = async (req, res) => {
       return res.status(400).json({ message: "customerId is required" });
     }
 
+    // No role-based access control - customer ID comes from query parameter
+
     // find invoices for that customer, populate sales order_id
     const invoices = await Invoice.find({ customer_id: customerId })
       .populate({
@@ -334,6 +336,8 @@ export const getInvoiceById = async (req, res) => {
     if (!invoiceDoc) {
       return res.status(404).json({ message: "Invoice not found" });
     }
+
+    // No role-based access control - access controlled by frontend query parameters
 
     // convert to plain object
     const invoice = invoiceDoc.toObject();
