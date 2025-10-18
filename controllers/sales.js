@@ -549,32 +549,71 @@ export const updateSaleStatus = async (req, res) => {
     if (!status) {
       return res.status(400).json({ message: "Status is required" });
     }
-    const sale = await Sales.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    
+    const sale = await Sales.findById(req.params.id);
     if (!sale) return res.status(404).json({ message: "Sale not found" });
+    
+    const oldStatus = sale.status;
+    
+    // Update the status
+    sale.status = status;
+    sale.updated_at = new Date();
+    await sale.save();
+    
+    // If status changed to CANCELLED and it was previously approved, reduce production quantities
+    if (status === "CANCELLED" && oldStatus !== "UN_APPROVED" && oldStatus !== "CANCELLED") {
+      await reduceProductionQuantitiesOnSalesDeletion(sale);
+    }
+    
     res.status(200).json({ message: "Status updated" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-// NEW: Update sales order function (only for UN_APPROVED orders)
+// NEW: Update sales order function (UN_APPROVED orders for all roles, approved orders for ADMIN only)
 export const updateSalesOrder = async (req, res) => {
   try {
     const { id } = req.params;
+    const userRole = req.user?.role;
     const sale = await Sales.findById(id);
 
     if (!sale) {
       return res.status(404).json({ error: "Sale not found" });
     }
 
-    // Only allow updates for UN_APPROVED orders
-    if (sale.status !== "UN_APPROVED") {
+    const effectiveRole = userRole || req.user?.role;
+    const isAdmin = effectiveRole?.toUpperCase() === "ADMIN";
+    
+    if (sale.status !== "UN_APPROVED" && !isAdmin) {
       return res.status(400).json({ 
-        error: "Only unapproved sales orders can be edited" 
+        error: "Only administrators can edit approved sales orders" 
       });
+    }
+
+    // Debug logging
+    console.log("Update Sales Order Debug:", {
+      saleId: id,
+      saleStatus: sale.status,
+      userRole: userRole,
+      effectiveRole: effectiveRole,
+      effectiveRoleUpper: effectiveRole?.toUpperCase(),
+      userObject: req.user,
+      reqUserRole: req.user?.role,
+      reqUserRoleUpper: req.user?.role?.toUpperCase(),
+      canEdit: sale.status === "UN_APPROVED" || isAdmin,
+      isUnapproved: sale.status === "UN_APPROVED",
+      isAdmin: isAdmin,
+      willBlock: sale.status !== "UN_APPROVED" && !isAdmin,
+      condition1: sale.status !== "UN_APPROVED",
+      condition2: !isAdmin,
+      explanation: isAdmin ? "Admin can edit any order" : 
+                   sale.status === "UN_APPROVED" ? "Non-admin can edit unapproved orders" : 
+                   "Non-admin cannot edit approved orders"
+    });
+
+    // For approved orders, only ADMIN can edit
+    if (sale.status !== "UN_APPROVED" && isAdmin) {
+      // Additional validations for admin editing approved orders will be added below
     }
 
     let updateData = { ...req.body };
@@ -583,6 +622,36 @@ export const updateSalesOrder = async (req, res) => {
     if (updateData.finished_goods && Array.isArray(updateData.finished_goods)) {
       let totalAmount = 0;
       const updatedFinishedGoods = [];
+
+      // For admin editing approved orders, validate against invoiced quantities
+      if (sale.status !== "UN_APPROVED" && isAdmin) {
+        // Check if any items are being removed that have invoiced quantities
+        for (const existingItem of sale.finished_goods) {
+          const isStillPresent = updateData.finished_goods.some(newItem => 
+            newItem.fg_id && newItem.fg_id.toString() === existingItem.finished_good.toString()
+          );
+          
+          if (!isStillPresent && (existingItem.invoiced_quantity || 0) > 0) {
+            return res.status(400).json({
+              error: `Cannot remove item with invoiced quantity. Item has ${existingItem.invoiced_quantity} invoiced units.`,
+              item: existingItem
+            });
+          }
+        }
+
+        // Check for duplicate items in the new data
+        const seenItems = new Set();
+        for (const item of updateData.finished_goods) {
+          const itemKey = `${item.model}-${item.type}-${item.ratio}-${item.power}`;
+          if (seenItems.has(itemKey)) {
+            return res.status(400).json({
+              error: `Duplicate item found: ${item.model} ${item.type} ${item.ratio} ${item.power}. Please increase/decrease the existing quantity instead.`,
+              item
+            });
+          }
+          seenItems.add(itemKey);
+        }
+      }
 
       for (const item of updateData.finished_goods) {
         const { model, type, ratio, power, quantity, fg_id } = item;
@@ -601,6 +670,25 @@ export const updateSalesOrder = async (req, res) => {
           });
         }
 
+        // For admin editing approved orders, validate quantity changes
+        if (sale.status !== "UN_APPROVED" && isAdmin && fg_id) {
+          const existingItem = sale.finished_goods.find(existing => 
+            existing.finished_good.toString() === fg_id.toString()
+          );
+          
+          if (existingItem) {
+            const newQuantity = parseFloat(quantity || 0);
+            const invoicedQuantity = existingItem.invoiced_quantity || 0;
+            
+            if (newQuantity < invoicedQuantity) {
+              return res.status(400).json({
+                error: `Cannot reduce quantity below invoiced amount. Current invoiced: ${invoicedQuantity}, New quantity: ${newQuantity}`,
+                item: { fg_id, invoiced_quantity: invoicedQuantity, new_quantity: newQuantity }
+              });
+            }
+          }
+        }
+
         // Use base price for rate_per_unit when editing
         const rate = parseFloat(finishedGood.base_price || 0);
         const qty = parseFloat(quantity || 0);
@@ -612,12 +700,24 @@ export const updateSalesOrder = async (req, res) => {
           rate_per_unit: rate.toFixed(2),
           quantity: qty,
           item_total_price: itemTotal.toFixed(2),
+          // Preserve invoiced_quantity for existing items
+          ...(fg_id && sale.finished_goods.find(existing => 
+            existing.finished_good.toString() === fg_id.toString()
+          ) ? {
+            invoiced_quantity: sale.finished_goods.find(existing => 
+              existing.finished_good.toString() === fg_id.toString()
+            ).invoiced_quantity || 0
+          } : {})
         });
       }
 
       updateData.finished_goods = updatedFinishedGoods;
       updateData.total_amount = totalAmount.toFixed(2);
-      updateData.recieved_amount = 0; // Reset received amount when items change
+      
+      // Only reset received amount for unapproved orders
+      if (sale.status === "UN_APPROVED") {
+        updateData.recieved_amount = 0;
+      }
     }
 
     const allowedUpdates = ['customer_name', 'magneq_user', 'description', 'delivery_date', 'finished_goods', 'total_amount', 'recieved_amount'];
@@ -643,6 +743,11 @@ export const updateSalesOrder = async (req, res) => {
 
     if (!updatedSale) {
       return res.status(404).json({ message: "Sale not found" });
+    }
+
+    // Update production quantities if finished goods were modified and order is approved
+    if (updateData.finished_goods && sale.status !== "UN_APPROVED") {
+      await updateProductionQuantitiesForSalesOrder(sale, updatedSale);
     }
 
     res.status(200).json({ 
@@ -717,9 +822,35 @@ export const getSalesOfCustomer = async (req, res) => {
 };
 export const deleteSale = async (req, res) => {
   try {
-    const deleted = await Sales.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: "Sale not found" });
-    res.status(200).json({ message: "Sale deleted" });
+    const { id } = req.params;
+    const userRole = req.user?.role;
+    
+    const sale = await Sales.findById(id);
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+
+    // Check if any items have invoiced quantities
+    const hasInvoicedItems = sale.finished_goods.some(item => (item.invoiced_quantity || 0) > 0);
+    
+    if (hasInvoicedItems) {
+      return res.status(400).json({ 
+        message: "Cannot delete sales order with invoiced items." 
+      });
+    }
+
+    // Only ADMIN can delete sales orders
+    if (userRole?.toUpperCase() !== "ADMIN") {
+      return res.status(403).json({ 
+        message: "Only administrators can delete sales orders" 
+      });
+    }
+
+    // Reduce production quantities before deleting the sales order
+    if (sale.status !== "UN_APPROVED") {
+      await reduceProductionQuantitiesOnSalesDeletion(sale);
+    }
+
+    const deleted = await Sales.findByIdAndDelete(id);
+    res.status(200).json({ message: "Sale deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -751,5 +882,74 @@ export const getFgBySalesId = async (req, res) => {
   } catch (error) {
     console.error("Error fetching FG by salesId:", error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Helper function to update production quantities when sales order is modified
+const updateProductionQuantitiesForSalesOrder = async (originalSale, updatedSale) => {
+  try {
+    // Create maps for easy comparison
+    const originalItems = new Map();
+    const updatedItems = new Map();
+
+    originalSale.finished_goods.forEach(item => {
+      originalItems.set(item.finished_good.toString(), item.quantity);
+    });
+
+    updatedSale.finished_goods.forEach(item => {
+      updatedItems.set(item.finished_good.toString(), item.quantity);
+    });
+
+    // Process all finished goods that were in original or updated sale
+    const allFgIds = new Set([...originalItems.keys(), ...updatedItems.keys()]);
+
+    for (const fgId of allFgIds) {
+      const originalQty = originalItems.get(fgId) || 0;
+      const updatedQty = updatedItems.get(fgId) || 0;
+      const quantityChange = updatedQty - originalQty;
+
+      if (quantityChange !== 0) {
+        // Find production record for this finished good
+        const production = await Production.findOne({
+          finished_good: fgId
+        });
+
+        if (production) {
+          // Update production quantity based on the change
+          production.production_quantity = Math.max(0, production.production_quantity + quantityChange);
+          production.updated_at = new Date();
+          await production.save();
+
+          console.log(`Updated production for FG ${fgId}: production_quantity changed by ${quantityChange}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error updating production quantities:", error);
+    // Don't throw error here as sales order update should still succeed
+  }
+};
+
+// Helper function to reduce production quantities when sales order is deleted
+const reduceProductionQuantitiesOnSalesDeletion = async (sale) => {
+  try {
+    for (const item of sale.finished_goods) {
+      // Find production record for this finished good
+      const production = await Production.findOne({
+        finished_good: item.finished_good
+      });
+
+      if (production) {
+        // Reduce production quantity by the sales order quantity
+        production.production_quantity = Math.max(0, production.production_quantity - item.quantity);
+        production.updated_at = new Date();
+        await production.save();
+
+        console.log(`Reduced production for FG ${item.finished_good}: production_quantity reduced by ${item.quantity}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error reducing production quantities on sales deletion:", error);
+    // Don't throw error here as sales order deletion should still succeed
   }
 };

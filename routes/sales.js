@@ -10,7 +10,8 @@ import {
   saleAmountRecieved,
   getTopStats,
   getSalesOfCustomer,
-  getFgBySalesId
+  getFgBySalesId,
+  deleteSale
 } from "../controllers/sales.js";
 import { authenticate } from "../middlewares/authMiddleware.js";
 
@@ -26,7 +27,7 @@ const router = express.Router();
  *       200:
  *         description: Sales top statistics fetched
  */
-router.get("/top-stats", getTopStats);
+router.get("/top-stats", authenticate, getTopStats);
 
 /**
  * @swagger
@@ -257,8 +258,8 @@ router.patch("/:id/reject", authenticate, rejectSale);
 */
 router.get("/", authenticate, getAllSales);
 
-router.get("/customer/:customerId", getSalesOfCustomer);
-router.get("/finished-goods/:salesId", getFgBySalesId);
+router.get("/customer/:customerId", authenticate, getSalesOfCustomer);
+router.get("/finished-goods/:salesId", authenticate, getFgBySalesId);
 /**
  * @swagger
  * /api/sales/{id}:
@@ -275,7 +276,7 @@ router.get("/finished-goods/:salesId", getFgBySalesId);
  *       200:
  *         description: Sale found
 */
-router.get("/:id", getSaleById);
+router.get("/:id", authenticate, getSaleById);
 
 /**
  * @swagger
@@ -299,25 +300,31 @@ router.get("/:id", getSaleById);
  *       200:
  *         description: Sale updated successfully
  */
-router.put("/:id", updateSalesOrder);
+router.put("/:id", authenticate, updateSalesOrder);
 
-// /**
-//  * @swagger
-//  * /api/sales/{id}:
-//  *   delete:
-//  *     summary: Delete a sale
-//  *     tags: [Sales]
-//  *     parameters:
-//  *       - in: path
-//  *         name: id
-//  *         required: true
-//  *         schema:
-//  *           type: string
-//  *     responses:
-//  *       200:
-//  *         description: Sale deleted successfully
-//  */
-// router.delete("/:id", deleteSale);
+/**
+ * @swagger
+ * /api/sales/{id}:
+ *   delete:
+ *     summary: Delete a sales order (Admin only)
+ *     tags: [Sales]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Sales order deleted successfully
+ *       400:
+ *         description: Cannot delete sales order with invoiced items
+ *       403:
+ *         description: Only administrators can delete sales orders
+ *       404:
+ *         description: Sales order not found
+ */
+router.delete("/:id", authenticate, deleteSale);
 
 /**
  * @swagger
@@ -368,7 +375,7 @@ router.put("/:id", updateSalesOrder);
  *       500:
  *         description: Server error
  */
-router.patch("/:id/status", updateSaleStatus);
+router.patch("/:id/status", authenticate, updateSaleStatus);
 
 /**
  * @swagger
@@ -414,7 +421,7 @@ router.patch("/:id/status", updateSaleStatus);
  *       500:
  *         description: Server error
  */
-router.patch("/:id/recievedAmt", saleAmountRecieved);
+router.patch("/:id/recievedAmt", authenticate, saleAmountRecieved);
 
 
 export default router;
