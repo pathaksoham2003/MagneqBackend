@@ -7,6 +7,7 @@ import Customers from "../models/Customers.js";
 import { formatDateTime, getFgModelNumber } from "../utils/helper.js";
 import Ledger from "../models/Ledger.js";
 import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
+import puppeteer from "puppeteer";
 
 export const createInvoice = async (req, res) => {
   try {
@@ -167,11 +168,23 @@ export const getAllInvoices = async (req, res) => {
     const customerId = req.query.customer_id;
     const startDate = req.query.start_date;
     const endDate = req.query.end_date;
+    const userId = req.query.user_id;
+    const userRole = req.query.user_role;
 
     // Build base query
     let query = {};
 
-    // Filter by customer ID if provided
+    // Apply role-based filtering
+    if (userRole === "SALES" && userId) {
+      // For sales users, only show invoices for sales orders they created
+      query["sales_id.created_by"] = userId;
+    } else if (userRole === "CUSTOMER" && userId) {
+      // For customers, only show their own invoices
+      query.customer_id = userId;
+    }
+    // ADMIN role: No additional filtering - gets all invoices
+
+    // Filter by customer ID if provided (overrides role-based customer filtering)
     if (customerId) {
       query.customer_id = customerId;
     }
@@ -219,6 +232,7 @@ export const getAllInvoices = async (req, res) => {
           path: "finished_goods.finished_good",
           select: "model type ratio power other_specification",
         },
+        select: "order_id created_by",
       })
       .populate({
         path: "customer_id",
@@ -422,6 +436,11 @@ export const updateTransportDetails = async (req, res) => {
       invoice.lr_number = lr_number;
     }
 
+    // Auto-change status to PROCESSED when transport details are added
+    if ((transport_details && transport_details.trim() !== "") || (lr_number && lr_number.trim() !== "")) {
+      invoice.status = "PROCESSED";
+    }
+
     await invoice.save();
 
     res.status(200).json({
@@ -452,10 +471,10 @@ export const updateInvoiceStatus = async (req, res) => {
       return res.status(400).json({ message: "Status is required" });
     }
 
-    const validStatuses = ["DISPATCHED", "DELIVERED", "OUT_FOR_DELIVERY"];
+    const validStatuses = ["UNPROCESSED", "PROCESSED"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ 
-        message: "Invalid status. Valid statuses are: DISPATCHED, DELIVERED, OUT_FOR_DELIVERY" 
+        message: "Invalid status. Valid statuses are: UNPROCESSED, PROCESSED" 
       });
     }
 
@@ -504,10 +523,10 @@ export const deleteInvoice = async (req, res) => {
       return res.status(403).json({ message: "Only administrators can delete invoices" });
     }
 
-    // Check if invoice can be deleted (not delivered)
-    if (invoice.status === "DELIVERED") {
+    // Check if invoice can be deleted (not processed)
+    if (invoice.status === "PROCESSED") {
       return res.status(400).json({ 
-        message: "Cannot delete delivered invoices. Please contact support." 
+        message: "Cannot delete processed invoices. Please contact support." 
       });
     }
 
@@ -591,4 +610,400 @@ const restoreProductionQuantitiesOnInvoiceDeletion = async (items) => {
     console.error("Error restoring production quantities on invoice deletion:", error);
     // Don't throw error here as invoice deletion should still succeed
   }
+};
+
+// Generate PDF invoice
+export const generateInvoicePDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Invoice ID is required" });
+    }
+
+    const invoiceDoc = await Invoice.findById(id)
+      .populate("sales_id", "sales_order_number")
+      .populate("customer_id")
+      .populate("items.finished_good");
+
+    if (!invoiceDoc) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    // Convert to plain object
+    const invoice = invoiceDoc.toObject();
+    const formattedInvoice = {
+      invoice_number: invoice.invoice_number,
+      status: invoice.status,
+      invoice_date: invoice.invoice_date ? formatDateTime(invoice.invoice_date) : null,
+      due_date: invoice.due_date ? formatDateTime(invoice.due_date) : null,
+      transport_details: invoice.transport_details || "",
+      lr_number: invoice.lr_number || "",
+      customer: {
+        id: invoice.customer_id?._id,
+        name: invoice.customer_id?.name,
+        email: invoice.customer_id?.email,
+        phone: invoice.customer_id?.phone,
+        address: invoice.customer_id?.address,
+        state: invoice.customer_id?.state,
+        pincode: invoice.customer_id?.pin_code,
+        gst: invoice.customer_id?.gst_no,
+      },
+      sales_order: {
+        id: invoice.sales_id?._id,
+        sales_order_number: invoice.sales_id?.order_id,
+      },
+      items: invoice.items.map((item) => {
+        const fgData = item.finished_good_snapshot || item.finished_good;
+        
+        return {
+          sales_item: item.sales_item,
+          finished_good: {
+            id: item.finished_good?._id || item.finished_good,
+            model: fgData?.model,
+            type: fgData?.type,
+            ratio: fgData?.ratio,
+            power: fgData?.power,
+            other_specification: fgData?.other_specification,
+            gst_slab: fgData?.gst_slab ? Number(fgData.gst_slab) : 0,
+          },
+          description: item.description,
+          invoiced_quantity: item.invoiced_quantity,
+          rate_per_unit: item.rate_per_unit ? Number(item.rate_per_unit) : 0,
+          invoiced_amount: item.invoiced_amount ? Number(item.invoiced_amount) : 0,
+          taxes: item.taxes.map((t) => ({
+            type: t.type,
+            percentage: t.percentage ? Number(t.percentage) : 0,
+            amount: t.amount ? Number(t.amount) : 0,
+          })),
+          total_with_tax: item.total_with_tax ? Number(item.total_with_tax) : 0,
+        };
+      }),
+      total_invoice_amount: invoice.total_invoice_amount ? Number(invoice.total_invoice_amount) : 0,
+      createdAt: invoice.createdAt ? formatDateTime(invoice.createdAt) : null,
+    };
+
+    // Generate HTML for the invoice
+    const htmlContent = generateInvoiceHTML(formattedInvoice);
+
+    // Launch puppeteer
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+
+    // Generate PDF
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '0.5in',
+        right: '0.5in',
+        bottom: '0.5in',
+        left: '0.5in'
+      }
+    });
+
+    await browser.close();
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Invoice_${formattedInvoice.invoice_number}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    // Send PDF
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    res.status(500).json({ message: "Error generating PDF", error: error.message });
+  }
+};
+
+// Helper function to generate HTML for invoice
+const generateInvoiceHTML = (invoice) => {
+  // Calculate subtotal (before tax)
+  const subtotal = invoice.items.reduce((sum, item) => sum + item.invoiced_amount, 0);
+
+  // Calculate tax summary (group by type)
+  const taxSummary = invoice.items.reduce((acc, item) => {
+    item.taxes?.forEach((t) => {
+      if (!acc[t.type]) {
+        acc[t.type] = { percentage: t.percentage, amount: 0 };
+      }
+      acc[t.type].amount += t.amount;
+    });
+    return acc;
+  }, {});
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Invoice ${invoice.invoice_number}</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            
+            body {
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background: white;
+            }
+            
+            .invoice-container {
+                max-width: 4xl;
+                margin: 0 auto;
+                padding: 24px;
+                font-size: 14px;
+                color: black;
+                background: white;
+            }
+            
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 24px;
+            }
+            
+            .logo {
+                width: 96px;
+                height: auto;
+            }
+            
+            .invoice-info {
+                text-align: right;
+            }
+            
+            .invoice-info h2 {
+                font-size: 20px;
+                font-weight: bold;
+                margin-bottom: 8px;
+            }
+            
+            .invoice-info p {
+                margin-bottom: 4px;
+            }
+            
+            .company-details {
+                margin-bottom: 24px;
+            }
+            
+            .company-details p {
+                margin-bottom: 4px;
+            }
+            
+            .customer-section {
+                margin-bottom: 24px;
+            }
+            
+            .customer-section h3 {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            
+            .customer-section p {
+                margin-bottom: 4px;
+            }
+            
+            .sales-order-section {
+                margin-bottom: 24px;
+            }
+            
+            .sales-order-section h3 {
+                font-size: 16px;
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            
+            .sales-order-section p {
+                margin-bottom: 4px;
+            }
+            
+            .items-table {
+                width: 100%;
+                border-collapse: collapse;
+                border: 1px solid #d1d5db;
+                margin-bottom: 24px;
+            }
+            
+            .items-table th {
+                background-color: #f3f4f6;
+                border: 1px solid #d1d5db;
+                padding: 8px;
+                text-align: left;
+                font-weight: 500;
+            }
+            
+            .items-table td {
+                border: 1px solid #d1d5db;
+                padding: 8px;
+                text-align: left;
+            }
+            
+            .items-table tr:nth-child(even) {
+                background-color: #f9fafb;
+            }
+            
+            .items-table ul {
+                margin: 0;
+                padding-left: 16px;
+            }
+            
+            .items-table li {
+                margin-bottom: 2px;
+            }
+            
+            .total-section {
+                text-align: right;
+                margin-top: 16px;
+            }
+            
+            .total-section p {
+                margin-bottom: 4px;
+            }
+            
+            .grand-total {
+                font-weight: 600;
+                font-size: 18px;
+                margin-top: 8px;
+            }
+            
+            .footer {
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #d1d5db;
+                text-align: center;
+                color: #6b7280;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="invoice-container">
+            <!-- Header -->
+            <div class="header">
+                <div class="logo">
+                    <!-- Logo placeholder - you can add actual logo here -->
+                    <div style="width: 96px; height: 48px; background: #f3f4f6; border: 1px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #6b7280;">
+                        LOGO
+                    </div>
+                </div>
+                <div class="invoice-info">
+                    <h2>INVOICE</h2>
+                    <p><strong>Invoice #:</strong> ${invoice.invoice_number}</p>
+                    <p><strong>Status:</strong> ${invoice.status}</p>
+                    <p><strong>Date:</strong> ${invoice.invoice_date}</p>
+                    ${invoice.due_date ? `<p><strong>Due Date:</strong> ${invoice.due_date}</p>` : ''}
+                </div>
+            </div>
+
+            <!-- Company Details -->
+            <div class="company-details">
+                <p><strong>Company Name:</strong> MAGNEQ TRANSMISSION PRIVATE LIMITED</p>
+                <p><strong>Address:</strong> PLOT NO.E-24/6, MIDC INDL.AREA,CHIKALTHANA, Chh. SAMBHAJINAGAR</p>
+                <p><strong>Phone:</strong> +91 98765 43210</p>
+                <p><strong>GST No:</strong> 27AABCU9603R1ZV</p>
+            </div>
+
+            <!-- Customer Info -->
+            <div class="customer-section">
+                <h3>Bill To:</h3>
+                <p><strong>Name:</strong> ${invoice.customer?.name || 'N/A'}</p>
+                <p><strong>Email:</strong> ${invoice.customer?.email || 'N/A'}</p>
+                <p><strong>Phone:</strong> ${invoice.customer?.phone || 'N/A'}</p>
+                <p><strong>Address:</strong> ${invoice.customer?.address || 'N/A'}</p>
+                <p><strong>State:</strong> ${invoice.customer?.state || 'N/A'}</p>
+                <p><strong>Pincode:</strong> ${invoice.customer?.pincode || 'N/A'}</p>
+            </div>
+
+            <!-- Sales Order Info -->
+            ${invoice.sales_order?.sales_order_number ? `
+                <div class="sales-order-section">
+                    <h3>Sales Order:</h3>
+                    <p><strong>Order #:</strong> ${invoice.sales_order.sales_order_number}</p>
+                </div>
+            ` : ''}
+
+            <!-- Item Table -->
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th>Sr.</th>
+                        <th>Product</th>
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Rate</th>
+                        <th>Amount</th>
+                        <th>Taxes</th>
+                        <th>Total w/ Tax</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${invoice.items.map((item, idx) => `
+                        <tr>
+                            <td>${idx + 1}</td>
+                            <td>
+                                ${getFgModelNumber(item.finished_good) || 'N/A'}
+                            </td>
+                            <td>${item.description || '-'}</td>
+                            <td>${item.invoiced_quantity}</td>
+                            <td>₹${item.rate_per_unit.toFixed(2)}</td>
+                            <td>₹${item.invoiced_amount.toFixed(2)}</td>
+                            <td>
+                                ${item.taxes?.length ? `
+                                    <ul>
+                                        ${item.taxes.map((t, i) => `
+                                            <li>${t.type} (${t.percentage}%): ₹${t.amount.toFixed(2)}</li>
+                                        `).join('')}
+                                    </ul>
+                                ` : '—'}
+                            </td>
+                            <td>₹${item.total_with_tax.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            <!-- Subtotal + Tax Summary + Grand Total -->
+            <div class="total-section">
+                <p><strong>Subtotal:</strong> ₹${subtotal.toFixed(2)}</p>
+
+                ${Object.entries(taxSummary).map(([type, { percentage, amount }], idx) => `
+                    <p><strong>${type} (${percentage}%):</strong> ₹${amount.toFixed(2)}</p>
+                `).join('')}
+
+                <p class="grand-total">
+                    Grand Total: ₹${invoice.total_invoice_amount.toFixed(2)}
+                </p>
+            </div>
+
+            <!-- Transport Details -->
+            ${invoice.transport_details || invoice.lr_number ? `
+                <div class="customer-section">
+                    <h3>Transport Details:</h3>
+                    ${invoice.lr_number ? `<p><strong>LR Number:</strong> ${invoice.lr_number}</p>` : ''}
+                    ${invoice.transport_details ? `<p><strong>Details:</strong> ${invoice.transport_details}</p>` : ''}
+                </div>
+            ` : ''}
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>Thank you for your business!</p>
+                <p>Generated on: ${invoice.createdAt}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+  `;
 };

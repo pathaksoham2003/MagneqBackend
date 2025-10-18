@@ -44,8 +44,8 @@ const invoiceSchema = new mongoose.Schema(
     invoice_number: { type: Number, unique: true }, // auto increment invoice number
     status: {
       type: String,
-      enum: ["DISPATCHED", "DELIVERED","OUT_FOR_DELIVERY"],
-      default: "DISPATCHED",
+      enum: ["UNPROCESSED", "PROCESSED"],
+      default: "UNPROCESSED",
     },
     invoice_date: { type: Date, default: Date.now },
     due_date: { type: Date },

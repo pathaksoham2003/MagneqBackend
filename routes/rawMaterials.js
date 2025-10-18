@@ -123,28 +123,37 @@ router.get("/filter_config",getRawMaterialFilterConfig)
  *                   properties:
  *                     inStock:
  *                       type: number
- *                       description: Number of items in stock
+ *                       description: Number of items in stock (quantity >= minimum)
+ *                     lowQuantity:
+ *                       type: number
+ *                       description: Number of items with low quantity (0 < quantity < minimum)
  *                     outOfStock:
  *                       type: number
- *                       description: Number of items out of stock
+ *                       description: Number of items out of stock (quantity = 0)
  *                 B:
  *                   type: object
  *                   properties:
  *                     inStock:
  *                       type: number
- *                       description: Number of items in stock
+ *                       description: Number of items in stock (quantity >= minimum)
+ *                     lowQuantity:
+ *                       type: number
+ *                       description: Number of items with low quantity (0 < quantity < minimum)
  *                     outOfStock:
  *                       type: number
- *                       description: Number of items out of stock
+ *                       description: Number of items out of stock (quantity = 0)
  *                 C:
  *                   type: object
  *                   properties:
  *                     inStock:
  *                       type: number
- *                       description: Number of items in stock
+ *                       description: Number of items in stock (quantity >= minimum)
+ *                     lowQuantity:
+ *                       type: number
+ *                       description: Number of items with low quantity (0 < quantity < minimum)
  *                     outOfStock:
  *                       type: number
- *                       description: Number of items out of stock
+ *                       description: Number of items out of stock (quantity = 0)
  *       500:
  *         description: Server error
  */

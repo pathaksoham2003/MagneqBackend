@@ -7,6 +7,7 @@ import {
   updateTransportDetails,
   updateInvoiceStatus,
   deleteInvoice,
+  generateInvoicePDF,
 } from "../controllers/invoice.js";
 import {authenticate} from "../middlewares/authMiddleware.js";
 
@@ -100,6 +101,7 @@ router.get("/", getAllInvoices);
 router.post("/", createInvoice);
 router.get("/customer/:customerId", getInvoicesByCustomer);
 router.get("/:id", getInvoiceById);
+router.get("/:id/pdf", generateInvoicePDF);
 router.patch("/:id/transport", updateTransportDetails);
 router.patch("/:id/status", updateInvoiceStatus);
 router.delete("/:id", deleteInvoice);

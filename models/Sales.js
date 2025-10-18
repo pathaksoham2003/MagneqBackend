@@ -14,7 +14,11 @@ const salesItemSchema = new mongoose.Schema(
     invoiced_quantity: { type: Number, default: 0 },
     total_invoiced_quantity: Number,
     item_total_price: { type: mongoose.Schema.Types.Decimal128, default: 0 },
-    status: { type: Boolean, default: false },
+    status: { 
+      type: String, 
+      enum: ["PENDING", "INPROCESS", "PROCESSED"], 
+      default: "PENDING" 
+    },
   },
   { _id: false }
 );

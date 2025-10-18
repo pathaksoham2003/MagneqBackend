@@ -399,7 +399,7 @@ export const addDailyProduction = async (req, res) => {
         const maxFromThisMaterial = Math.floor(availableQty / rm.quantity);
         
         rawMaterialLimits.push({
-          material: material.name || 'Unknown',
+          material: `${material.name} | ${material.type}` || 'Unknown',
           available: availableQty,
           requiredPerUnit: rm.quantity,
           maxProducible: maxFromThisMaterial

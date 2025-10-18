@@ -6,6 +6,8 @@ import PaymentRecieval from "../models/PaymentRecieval.js";
 import Invoice from "../models/Invoice.js";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
+import { calculateTaxes } from "../utils/taxCalculator.js";
+import Customers from "../models/Customers.js";
 
 export const getTopStats = async (req, res) => {
   try {
@@ -361,15 +363,20 @@ export const getAllSales = async (req, res) => {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
     const searchOrderId = req.query.search ? parseInt(req.query.search) : null;
+    const userId = req.query.user_id;
+    const userRole = req.query.user_role;
 
     const query = searchOrderId ? { order_id: searchOrderId } : {};
 
-    if (req.user?.role === "CUSTOMER") {
-      query.customer_name = { $regex: `^${req.user.name}$`, $options: 'i' };
-      // query.customer_created_by = req.user.id;
-    } else if (req.user?.role === "SALES") {
-      // query.created_by = new mongoose.Types.ObjectId(req.user.id)
+    // Apply role-based filtering using query parameters
+    if (userRole === "CUSTOMER" && userId) {
+      // Customer: Get sales orders where created_for field matches customer ID
+      query.created_for = userId;
+    } else if ((userRole === "SALES" || userRole === "PRODUCTION") && userId) {
+      // Non-admin users: Get sales orders where created_by field matches user ID
+      query.created_by = userId;
     }
+    // ADMIN role or no user_id: No additional filtering - gets all sales orders
     const totalCount = await Sales.countDocuments(query);
 
     const sales = await Sales.find(query)
@@ -386,6 +393,10 @@ export const getAllSales = async (req, res) => {
       })
       .populate({
         path: "customer_created_by",
+        select: "name user_name",
+      })
+      .populate({
+        path: "created_for",
         select: "name user_name",
       });
     const items = sales.map((sale) => {
@@ -429,7 +440,16 @@ export const getSaleById = async (req, res) => {
     const sale = await Sales.findById(req.params.id)
       .populate("finished_goods.finished_good")
       .populate("created_by")
-      .populate("customer_created_by");
+      .populate("customer_created_by")
+      .populate("created_for");
+
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+
+    // Determine if it's inter-state based on customer state
+    let isInterState = true; // Default to inter-state
+    if (sale.created_for?.state) {
+      isInterState = sale.created_for.state.toUpperCase() !== "MAHARASHTRA";
+    }
 
     const header = [
       "Order Quantity",
@@ -437,42 +457,82 @@ export const getSaleById = async (req, res) => {
       "Finished Good",
       "Rate per Unit",
       "Item Total Price",
+      "Tax Details",
+      "Total with Tax",
       "Status",
     ];
 
-    const headerLevelData = {
-      "Order Id": sale.order_id,
-      "Date of Creation": sale.createdAt,
-      "Customer Name": sale.customer_name,
-      "Created By":
-        sale.created_by?.user_name ||
-        sale.customer_created_by?.user_name ||
-        "N / A",
-      [`${sale.status == "CANCELLED" ? "Rejected by" : "Approved by"}`]:
-        sale?.approved_reject_by || " N / A",
-      "Total Price": Number(sale.total_amount),
-      Status: sale.status,
-    };
+    // Calculate tax-inclusive amounts for each item
+    let totalTaxAmount = 0;
+    let totalWithTax = 0;
 
-    const finishedGoods = sale.finished_goods.map((item) => {
+    const finishedGoods = await Promise.all(sale.finished_goods.map(async (item) => {
+      const rate = Number(item.rate_per_unit);
+      const quantity = item.quantity;
+      const amount = rate * quantity;
+      
+      // Calculate taxes for this item
+      const taxes = await calculateTaxes(item.finished_good._id, amount, isInterState);
+      const itemTaxAmount = taxes.reduce((sum, tax) => sum + tax.amount, 0);
+      const itemTotalWithTax = amount + itemTaxAmount;
+      
+      totalTaxAmount += itemTaxAmount;
+      totalWithTax += itemTotalWithTax;
+
+      // Calculate item status based on sales order status and invoicing
+      let itemStatus = "PENDING";
+      if (sale.status === "UN_APPROVED" || sale.status === "CANCELLED") {
+        itemStatus = "PENDING";
+      } else if (sale.status === "INPROCESS") {
+        if (item.invoiced_quantity >= item.quantity) {
+          itemStatus = "PROCESSED";
+        } else {
+          itemStatus = "INPROCESS";
+        }
+      } else if (sale.status === "PROCESSED") {
+        itemStatus = "PROCESSED";
+      }
+
       return {
         fg_id: item.finished_good._id,
         quantity: item.quantity,
         invoiced_quantity: item.invoiced_quantity || 0,
         finished_good: getFgModelNumber(item.finished_good),
-        rate_per_unit: Number(item.rate_per_unit),
-        item_total_price: Number(item.item_total_price),
+        rate_per_unit: rate,
+        item_total_price: amount,
+        tax_details: taxes.map(tax => ({
+          type: tax.type,
+          percentage: tax.percentage,
+          amount: parseFloat(tax.amount.toFixed(2))
+        })),
+        total_with_tax: parseFloat(itemTotalWithTax.toFixed(2)),
         base_price: Number(item.finished_good.base_price),
-        status: item.status,
+        status: itemStatus,
         // Add original data for editing
         model: item.finished_good.model,
         type: item.finished_good.type,
         ratio: item.finished_good.ratio,
         power: item.finished_good.power,
       };
-    });
+    }));
 
-    if (!sale) return res.status(404).json({ message: "Sale not found" });
+    const headerLevelData = {
+      "Order Id": sale.order_id,
+      "Date of Creation": sale.createdAt,
+      "Customer Name": sale.customer_name,
+      "Customer State": sale.created_for?.state || "N/A",
+      "Created By":
+        sale.created_by?.user_name ||
+        sale.customer_created_by?.user_name ||
+        "N / A",
+      [`${sale.status == "CANCELLED" ? "Rejected by" : "Approved by"}`]:
+        sale?.approved_reject_by || " N / A",
+      "Sub Total": parseFloat(Number(sale.total_amount).toFixed(2)),
+      "Total Tax Amount": parseFloat(totalTaxAmount.toFixed(2)),
+      "Total with Tax": parseFloat(totalWithTax.toFixed(2)),
+      Status: sale.status,
+    };
+
     res.status(200).json({
       headerLevelData,
       itemLevelData: { header, items: finishedGoods },

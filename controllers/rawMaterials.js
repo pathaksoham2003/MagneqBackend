@@ -155,7 +155,15 @@ export const getRawMaterialsByClass = async (req, res) => {
         currentQuantity = parseFloat(rm.quantity) || 0;
       }
 
-      const stockStatus = currentQuantity > minQuantity ? "In Stock" : "Out of Stock";
+      // Three-tier stock status logic
+      let stockStatus;
+      if (currentQuantity === 0) {
+        stockStatus = "Out of Stock";
+      } else if (currentQuantity > 0 && currentQuantity < minQuantity) {
+        stockStatus = "Low Quantity";
+      } else {
+        stockStatus = "In Stock";
+      }
 
       return {
         id: rm._id,
@@ -295,9 +303,9 @@ export const deleteRawMaterial = async (req, res) => {
 export const getRawMaterialStockStats = async (req, res) => {
   try {
     const stats = {
-      A: { inStock: 0, outOfStock: 0 },
-      B: { inStock: 0, outOfStock: 0 },
-      C: { inStock: 0, outOfStock: 0 }
+      A: { inStock: 0, lowQuantity: 0, outOfStock: 0 },
+      B: { inStock: 0, lowQuantity: 0, outOfStock: 0 },
+      C: { inStock: 0, lowQuantity: 0, outOfStock: 0 }
     };
 
     const rawMaterials = await RawMaterial.find().lean();
@@ -322,13 +330,13 @@ export const getRawMaterialStockStats = async (req, res) => {
         currentQuantity = parseFloat(material.quantity) || 0;
       }
 
-      // Determine stock status
-      const isInStock = currentQuantity > minQuantity;
-
-      if (isInStock) {
-        stats[material.class_type].inStock++;
-      } else {
+      // Three-tier stock status logic
+      if (currentQuantity === 0) {
         stats[material.class_type].outOfStock++;
+      } else if (currentQuantity > 0 && currentQuantity < minQuantity) {
+        stats[material.class_type].lowQuantity++;
+      } else {
+        stats[material.class_type].inStock++;
       }
     }
 
@@ -402,7 +410,7 @@ export const getShortRawMaterialsByClass = async (req, res) => {
     // Fetch all raw materials of this class
     const rawMaterials = await RawMaterial.find({ class_type }).lean();
 
-    // Filter short items based on rules
+    // Filter short items based on rules (Low Quantity and Out of Stock)
     const shortItems = rawMaterials.filter((rm) => {
       let checkQty = 0;
 
@@ -412,7 +420,9 @@ export const getShortRawMaterialsByClass = async (req, res) => {
         checkQty = rm.quantity?.unprocessed || 0;
       }
 
-      return checkQty < (rm.min_quantity || 0);
+      const minQty = rm.min_quantity || 0;
+      // Include items that are out of stock (0) or low quantity (above 0 but below minimum)
+      return checkQty === 0 || (checkQty > 0 && checkQty < minQty);
     });
 
     const total_items = shortItems.length;
