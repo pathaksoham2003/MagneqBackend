@@ -903,9 +903,8 @@ const generateInvoiceHTML = (invoice) => {
             <div class="header">
                 <div class="logo">
                     <!-- Logo placeholder - you can add actual logo here -->
-                    <div style="width: 96px; height: 48px; background: #f3f4f6; border: 1px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #6b7280;">
-                        LOGO
-                    </div>
+                    <img src="https://customer.magneqtransmission.com/server/api/assets/black-logo.png" alt="Company Logo" class="logo" />
+
                 </div>
                 <div class="invoice-info">
                     <h2>INVOICE</h2>

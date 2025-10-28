@@ -55,6 +55,8 @@ app.use("/api/manage", manageRoutes);
 app.use("/api/notification",notificationRoutes);
 app.use("/api/payment",paymentRoutes);
 
+app.use("/api/assets", express.static("assets"));
+
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
 app.listen(PORT, () => {

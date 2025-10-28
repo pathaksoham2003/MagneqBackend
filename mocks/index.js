@@ -270,6 +270,9 @@ const seedVendors = async () => {
 };
 
 const flushAll = async () => {
+  const countersCollection = mongoose.connection.collection("counters");
+  await countersCollection.deleteOne({ _id: "invoice_invoice_number" });
+  console.log("✅ Invoice auto-increment counter flushed successfully");
   await Notification.deleteMany({});
   await Ledger.deleteMany({});
   await RawMaterial.deleteMany({});
