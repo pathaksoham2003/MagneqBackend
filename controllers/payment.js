@@ -4,7 +4,7 @@ import Ledger from "../models/Ledger.js";
 
 export const createPayment = async (req, res) => {
   try {
-    const { customerId, date_of_recieval, amount, description } = req.body;
+    const { customerId, date_of_recieval, amount, description, transactionType, transactionId } = req.body;
 
     const customer = await Customer.findById(customerId);
     if (!customer) {
@@ -16,6 +16,8 @@ export const createPayment = async (req, res) => {
       date_of_recieval: date_of_recieval || new Date(),
       amount,
       description,
+      transactionType,
+      transactionId,
     });
 
     await Ledger.create({
@@ -23,7 +25,7 @@ export const createPayment = async (req, res) => {
       date: date_of_recieval || new Date(),
       type: "CREDIT", // payment received = CREDIT
       amount,
-      details: description || "Payment Received",
+      details: `${description || "Payment Received"} - ${transactionType}: ${transactionId}`,
     });
 
     res.status(201).json({

@@ -8,6 +8,8 @@ import { formatDateTime, getFgModelNumber } from "../utils/helper.js";
 import Ledger from "../models/Ledger.js";
 import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
 import puppeteer from "puppeteer";
+import { getLastRunningBalance } from "../utils/ledgerUtils.js";
+
 
 export const createInvoice = async (req, res) => {
   try {
@@ -130,13 +132,19 @@ export const createInvoice = async (req, res) => {
     await updateProductionQuantitiesOnInvoicing(items);
 
     // 7. Create ledger entry for the invoice (Debit)
+    const previousBalance = await getLastRunningBalance(customer_id);
+
+    // Debit increases balance
+    const newRunningBalance = previousBalance + totalInvoiceAmount;
+
     const ledgerEntry = await Ledger.create({
       customer_id: customer_id,
       invoice_id: invoice._id,
       date: new Date(),
-      type: "DEBIT", // invoice = debit
+      type: "DEBIT",
       amount: totalInvoiceAmount,
       details: `Invoice #${invoice.invoice_number} created`,
+      running_balance: newRunningBalance, // ✅ store calculated balance
     });
 
     // 8. 🔹 Check if ALL items are fully invoiced

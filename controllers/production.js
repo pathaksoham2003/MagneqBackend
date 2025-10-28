@@ -52,7 +52,10 @@ export const getPendingProductionOrders = async (req, res) => {
     const search = req.query.search;
 
     const query = {
-      produced_quantity: { $gt: 0 },
+      $or: [
+        { produced_quantity: { $gt: 0 } },
+        { production_quantity: { $gt: 0 } },
+      ],
     };
 
     if (search) {

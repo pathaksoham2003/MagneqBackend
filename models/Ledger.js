@@ -8,6 +8,7 @@ const ledgerEntrySchema = new mongoose.Schema(
     type: { type: String, enum: ["DEBIT", "CREDIT"], required: true },
     amount: { type: mongoose.Schema.Types.Decimal128, required: true },
     details: { type: String },
+    running_balance: { type: mongoose.Schema.Types.Decimal128, default: 0 }, // 🔹 new field
   },
   { timestamps: true }
 );

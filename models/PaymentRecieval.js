@@ -20,6 +20,15 @@ const paymentRecievalSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    transactionType: {
+      type: String,
+      enum: ["NEFT", "RTGS", "CHEQUE", "UPI"],
+      required: true,
+    },
+    transactionId: {
+      type: String,
+      required: true,
+    },
   },
   {
     timestamps: true, // adds createdAt & updatedAt automatically
