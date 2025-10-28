@@ -126,6 +126,28 @@
     }
   },
   {
+    "name": "Accounts Executive",
+    "role": "ACCOUNT",
+    "user_name": "Account@MT",
+    "password": "Magneq@2025",
+    "permissions": {
+      "sidebar": [
+        "invoice"
+      ],
+      "support": [],
+      "allowed_routes": [
+        "/dashboard",
+        "/sales",
+        "/production",
+        "/store",
+        "/purchase",
+        "/quality",
+        "/chat",
+        "/email"
+      ]
+    }
+  },
+  {
     "name": "Aslam",
     "role": "STORE",
     "user_name": "Stores@MT",
