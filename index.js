@@ -27,6 +27,7 @@ import dashboardRoutes from "./routes/dashboard.js";
 import manageRoutes from "./routes/manage.js";
 import notificationRoutes from "./routes/notification.js";
 import paymentRoutes from "./routes/payment.js";
+import exportRoutes from "./routes/export.js";
 import deliveryRoutes from "./routes/delivery.js";
 import ledgerRoutes from "./routes/ledger.js";
 
@@ -54,6 +55,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/manage", manageRoutes);
 app.use("/api/notification",notificationRoutes);
 app.use("/api/payment",paymentRoutes);
+app.use("/api/export",exportRoutes);
 
 app.use("/api/assets", express.static("assets"));
 
