@@ -10,7 +10,9 @@ import { getLastRunningBalance } from "../utils/ledgerUtils.js";
  */
 export const getLedgerData = async (customerId, startDate, endDate) => {
   const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
   const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
 
   // 1️⃣ Get opening balance before start date
   const previousEntry = await Ledger.findOne({
