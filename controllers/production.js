@@ -83,6 +83,9 @@ export const getPendingProductionOrders = async (req, res) => {
       const fg = production.finished_good;
       const orderDetails = getFgModelNumber(fg);
 
+      const totalQty = (production.production_quantity || 0) + (production.produced_quantity || 0);
+      const pendingQty = totalQty - (fg.units || 0);
+
       let statusDetail = null;
 
       if (production.status === "UN_PROCESSED") {
@@ -104,12 +107,12 @@ export const getPendingProductionOrders = async (req, res) => {
         id: production._id,
         data: [
           orderDetails,
-          ((production.production_quantity || 0) + (production.produced_quantity || 0)), // Total Production Quantity
-          ((production.production_quantity || 0) + (production.produced_quantity || 0) - fg.units || 0), // Production Pending Quantity
+          totalQty, // Total Production Quantity
+          pendingQty, // Production Pending Quantity
           fg.units || 0, // Current FG Stock Quantity
         ],
       };
-    });
+    }).filter(item=>item.data[2] > 0)
 
     res.status(200).json({
       header: [
