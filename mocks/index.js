@@ -306,6 +306,8 @@ const runSeeder = async () => {
         "/email"
       ],
     });
+    // Return here if you don't want the seed for customer vendor and rm fg
+    return;
     await seedCustomers();
     await seedVendors();
     const rawMaterials = await generateRawMaterials();
