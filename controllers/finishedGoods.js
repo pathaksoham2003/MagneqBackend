@@ -160,6 +160,9 @@ export const getFinishedGoodById = async (req, res) => {
       classB,
       classC,
       other_specification,
+      units: fg.units || 0,
+      base_price: fg.base_price ? parseFloat(fg.base_price.toString()) : 0,
+      gst_slab: fg.gst_slab ? parseFloat(fg.gst_slab.toString()) : 0,
     });
   } catch (error) {
     console.error("Error in getFinishedGoodById:", error);
