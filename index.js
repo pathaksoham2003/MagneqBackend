@@ -11,6 +11,7 @@ import "./models/Stock.js";
 import "./models/FinishedGoods.js";
 import "./models/Purchase.js";
 import "./models/Quality.js";
+import "./models/Transaction.js";
 
 import swaggerUI from "swagger-ui-express";
 import swaggerSpec from "./swagger/swagger.js";
@@ -30,6 +31,7 @@ import paymentRoutes from "./routes/payment.js";
 import exportRoutes from "./routes/export.js";
 import deliveryRoutes from "./routes/delivery.js";
 import ledgerRoutes from "./routes/ledger.js";
+import transactionRoutes from "./routes/transaction.js";
 
 dotenv.config();
 
@@ -56,6 +58,7 @@ app.use("/api/manage", manageRoutes);
 app.use("/api/notification",notificationRoutes);
 app.use("/api/payment",paymentRoutes);
 app.use("/api/export",exportRoutes);
+app.use("/api/transaction", transactionRoutes);
 
 app.use("/api/assets", express.static("assets"));
 

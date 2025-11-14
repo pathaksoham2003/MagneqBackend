@@ -42,7 +42,8 @@ export const createFinishedGood = async (req, res) => {
       type,
       rate_per_unit ="0" ,
       base_price ,
-      gst_slab
+      gst_slab,
+      other_specification
     } = req.body;
     if (!power || !ratio || !type || !model || !gst_slab) {
       return res.status(400).json({
@@ -82,6 +83,7 @@ export const createFinishedGood = async (req, res) => {
       rate_per_unit: mongoose.Types.Decimal128.fromString(rate_per_unit.toString()),
       base_price: mongoose.Types.Decimal128.fromString(base_price.toString()),
       gst_slab:gst_slab,
+      other_specification: other_specification,
       units: 0,
     });
 
@@ -157,6 +159,10 @@ export const getFinishedGoodById = async (req, res) => {
       classA,
       classB,
       classC,
+      other_specification,
+      units: fg.units || 0,
+      base_price: fg.base_price ? parseFloat(fg.base_price.toString()) : 0,
+      gst_slab: fg.gst_slab ? parseFloat(fg.gst_slab.toString()) : 0,
     });
   } catch (error) {
     console.error("Error in getFinishedGoodById:", error);
@@ -222,7 +228,8 @@ export const updateFinishedGoodDetails = async (req, res) => {
       ratio,
       type,
       base_price,
-      gst_slab
+      gst_slab,
+      other_specification
     } = req.body;
 
     if (!power || !ratio || !type || !model || !gst_slab) {
@@ -257,6 +264,7 @@ export const updateFinishedGoodDetails = async (req, res) => {
       type: type.trim(),
       base_price: mongoose.Types.Decimal128.fromString(base_price.toString()),
       gst_slab: gst_slab,
+      other_specification: other_specification,
     };
 
     // Check for duplicate model number

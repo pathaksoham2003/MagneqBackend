@@ -2,6 +2,8 @@ import puppeteer from "puppeteer";
 import { format } from "date-fns";
 import Ledger from "../models/Ledger.js";
 import Customer from "../models/Customers.js";
+import Transaction from "../models/Transaction.js";
+import mongoose from "mongoose";
 import { generateLedgerHTML } from "../utils/ledgerTemplate.js";
 import { getLastRunningBalance } from "../utils/ledgerUtils.js";
 
@@ -167,6 +169,225 @@ export const generateLedgerPDF = async (req, res) => {
     console.error("Error generating ledger PDF:", error);
     res.status(500).json({
       message: "Error generating ledger PDF",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get first and last ledger entry dates for a customer
+ */
+export const getLedgerDateRange = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    if (!customerId) {
+      return res.status(400).json({ message: "Customer ID is required" });
+    }
+
+    // Get first entry
+    const firstEntry = await Ledger.findOne({ customer_id: customerId })
+      .sort({ date: 1, createdAt: 1 })
+      .lean();
+
+    // Get last entry
+    const lastEntry = await Ledger.findOne({ customer_id: customerId })
+      .sort({ date: -1, createdAt: -1 })
+      .lean();
+
+    return res.json({
+      firstDate: firstEntry?.date ? new Date(firstEntry.date).toISOString() : null,
+      lastDate: lastEntry?.date ? new Date(lastEntry.date).toISOString() : null,
+      hasEntries: !!firstEntry,
+    });
+  } catch (error) {
+    console.error("Error fetching ledger date range:", error);
+    res.status(500).json({
+      message: "Error fetching ledger date range",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Create customer opening balance entry
+ * If no ledger entries exist, create the first entry
+ * If entries exist, the new entry must be before the first entry OR after the last entry
+ */
+export const createOpeningBalance = async (req, res) => {
+  try {
+    const { customerId, date, creditAmount, debitAmount, description } = req.body;
+
+    if (!customerId || !date) {
+      return res.status(400).json({
+        message: "Customer ID and date are required",
+      });
+    }
+
+    if ((!creditAmount || creditAmount === 0) && (!debitAmount || debitAmount === 0)) {
+      return res.status(400).json({
+        message: "Either credit or debit amount must be provided",
+      });
+    }
+
+    // Validate customer exists
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    const entryDate = new Date(date);
+    entryDate.setHours(0, 0, 0, 0);
+
+    // Get today's date (end of day)
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    // Validate: entry date cannot be in the future
+    if (entryDate > today) {
+      return res.status(400).json({
+        message: "Entry date cannot be in the future",
+      });
+    }
+
+    // Get first and last entry dates
+    const firstEntry = await Ledger.findOne({ customer_id: customerId })
+      .sort({ date: 1, createdAt: 1 })
+      .lean();
+
+    const lastEntry = await Ledger.findOne({ customer_id: customerId })
+      .sort({ date: -1, createdAt: -1 })
+      .lean();
+
+    // If ledger entries exist, validate date
+    if (firstEntry) {
+      const firstDate = new Date(firstEntry.date);
+      firstDate.setHours(0, 0, 0, 0);
+
+      if (lastEntry) {
+        const lastDate = new Date(lastEntry.date);
+        lastDate.setHours(23, 59, 59, 999);
+
+        // Entry date must be:
+        // 1. Before first entry (and before today), OR
+        // 2. After last entry BUT before today (inclusive today)
+        // Disallow: between first and last entry (inclusive)
+        if (entryDate >= firstDate && entryDate <= lastDate) {
+          return res.status(400).json({
+            message: `Entry date must be before the first entry (${format(firstDate, "dd-MM-yyyy")}) or after the last entry (${format(lastDate, "dd-MM-yyyy")}) but not in the future`,
+            firstDate: firstDate.toISOString(),
+            lastDate: lastDate.toISOString(),
+          });
+        }
+
+        // If entry is after last date, it must be <= today
+        if (entryDate > lastDate && entryDate > today) {
+          return res.status(400).json({
+            message: `Entry date after the last entry (${format(lastDate, "dd-MM-yyyy")}) must be today or earlier`,
+            firstDate: firstDate.toISOString(),
+            lastDate: lastDate.toISOString(),
+          });
+        }
+      } else {
+        // Only first entry exists (shouldn't happen, but handle it)
+        // Entry must be before first date (and before today)
+        if (entryDate >= firstDate) {
+          return res.status(400).json({
+            message: `Entry date must be before the first entry (${format(firstDate, "dd-MM-yyyy")})`,
+            firstDate: firstDate.toISOString(),
+            lastDate: null,
+          });
+        }
+      }
+    }
+
+    // Calculate previous balance
+    let previousBalance = 0;
+    if (firstEntry) {
+      if (entryDate < firstEntry.date) {
+        // Entry is before first entry, balance starts from 0
+        previousBalance = 0;
+      } else if (lastEntry && entryDate > lastEntry.date) {
+        // Entry is after last entry, use last entry's running balance
+        previousBalance = parseFloat(lastEntry.running_balance || 0);
+      }
+    } else {
+      // No entries exist, this is the first entry - balance starts from 0
+      previousBalance = 0;
+    }
+
+    const entries = [];
+    let currentBalance = previousBalance;
+
+    // Create CREDIT entry if provided
+    if (creditAmount && creditAmount > 0) {
+      const creditValue = parseFloat(creditAmount);
+      const creditBalance = currentBalance - creditValue;
+      
+      const creditEntry = await Ledger.create({
+        customer_id: customerId,
+        date: entryDate,
+        type: "CREDIT",
+        amount: mongoose.Types.Decimal128.fromString(creditValue.toString()),
+        details: description || "Opening Balance - Credit",
+        running_balance: mongoose.Types.Decimal128.fromString(creditBalance.toString()),
+      });
+
+      // Create transaction record
+      const creditTransaction = new Transaction({
+        model_name: "LEDGER",
+        reference_id: creditEntry._id,
+        prev_value: mongoose.Types.Decimal128.fromString(currentBalance.toString()),
+        updated_value: mongoose.Types.Decimal128.fromString(creditBalance.toString()),
+        label: description || `Opening Balance Credit - ${customer.name}`,
+        field_name: "running_balance",
+        transaction_type: "CREDIT",
+        created_by: req.user?.id || null,
+      });
+      await creditTransaction.save();
+
+      entries.push(creditEntry);
+      currentBalance = creditBalance; // Update for next entry
+    }
+
+    // Create DEBIT entry if provided
+    if (debitAmount && debitAmount > 0) {
+      const debitValue = parseFloat(debitAmount);
+      const debitBalance = currentBalance + debitValue;
+      
+      const debitEntry = await Ledger.create({
+        customer_id: customerId,
+        date: entryDate,
+        type: "DEBIT",
+        amount: mongoose.Types.Decimal128.fromString(debitValue.toString()),
+        details: description || "Opening Balance - Debit",
+        running_balance: mongoose.Types.Decimal128.fromString(debitBalance.toString()),
+      });
+
+      // Create transaction record
+      const debitTransaction = new Transaction({
+        model_name: "LEDGER",
+        reference_id: debitEntry._id,
+        prev_value: mongoose.Types.Decimal128.fromString(currentBalance.toString()),
+        updated_value: mongoose.Types.Decimal128.fromString(debitBalance.toString()),
+        label: description || `Opening Balance Debit - ${customer.name}`,
+        field_name: "running_balance",
+        transaction_type: "DEBIT",
+        created_by: req.user?.id || null,
+      });
+      await debitTransaction.save();
+
+      entries.push(debitEntry);
+    }
+
+    res.status(201).json({
+      message: "Opening balance entries created successfully",
+      entries,
+    });
+  } catch (error) {
+    console.error("Error creating opening balance:", error);
+    res.status(500).json({
+      message: "Error creating opening balance",
       error: error.message,
     });
   }
