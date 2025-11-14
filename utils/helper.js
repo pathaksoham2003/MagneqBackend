@@ -111,7 +111,8 @@ export const getFgModelNumber = (fg) => {
   const shaft = otherSpec.motor_shaft_diameter || "$";
   const frame = otherSpec.motor_frame_size || "$";
 
-  return `MA${type}${model}${ratio}${shaft}${frame}`;
+  // return `MA${type}${model}${ratio}${shaft}${frame}`;
+  return `MA${type}${model}${ratio}${frame}`;
 };
 
 export const getModelNumber = (model_id) => `MA${model_id}`;
