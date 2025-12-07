@@ -28,6 +28,7 @@ const formatDate = (date) => {
 
 /**
  * Creates Excel workbook and sends response
+ * Handles both array of objects (key-value pairs) and array of arrays (structured rows)
  */
 const sendExcelFile = async (res, data, filename, worksheetName) => {
   const workbook = new ExcelJS.Workbook();
@@ -37,26 +38,130 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
     throw new Error("No data to export");
   }
 
-  // Set columns from first row keys
-  const firstRow = data[0];
-  worksheet.columns = Object.keys(firstRow).map((key) => ({
-    header: key.toUpperCase().replace(/_/g, " "),
-    key: key,
-    width: 20,
-  }));
+  // Check if data is array of arrays (structured format) or array of objects
+  const isStructuredFormat = Array.isArray(data[0]) && !Array.isArray(data[0][0]);
 
-  // Add data rows
-  data.forEach((row) => {
-    worksheet.addRow(row);
-  });
+  if (isStructuredFormat) {
+    // Handle structured format (array of arrays) - like ledger/receipt exports
+    data.forEach((row) => {
+      worksheet.addRow(row);
+    });
 
-  // Style header row
-  worksheet.getRow(1).font = { bold: true };
-  worksheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFE0E0E0" },
-  };
+    // Style header rows (company name, etc.)
+    // Find the table header row (usually contains "Date", "Particulars", etc.)
+    let tableHeaderRowIndex = -1;
+    let subHeaderRowIndex = -1;
+    for (let i = 0; i < data.length; i++) {
+      if (Array.isArray(data[i]) && data[i].length > 0) {
+        const firstCell = String(data[i][0]).toLowerCase();
+        if (firstCell === "date" || firstCell.includes("date")) {
+          tableHeaderRowIndex = i + 1; // Excel rows are 1-indexed
+          // Check if next row is a sub-header (contains "Amount")
+          if (i + 1 < data.length && Array.isArray(data[i + 1])) {
+            const nextRow = data[i + 1];
+            if (nextRow.length > 4 && String(nextRow[4]).toLowerCase() === "amount") {
+              subHeaderRowIndex = i + 2; // Excel rows are 1-indexed
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    // Style company header row (usually first row) - merge across all columns
+    if (data[0] && data[0].length > 0) {
+      const firstRow = worksheet.getRow(1);
+      firstRow.font = { bold: true, size: 14 };
+      firstRow.alignment = { horizontal: "left", vertical: "middle" };
+      const maxCols = Math.max(...data.map(row => Array.isArray(row) ? row.length : 0), 6);
+      worksheet.mergeCells(1, 1, 1, maxCols);
+    }
+
+    // Style "Receipt Register" title row if it exists (usually row 4) - merge only 3 columns
+    if (data.length >= 4 && Array.isArray(data[3]) && data[3][0] && 
+        String(data[3][0]).toLowerCase().includes("receipt register")) {
+      const titleRow = worksheet.getRow(4);
+      titleRow.font = { bold: true, size: 12 };
+      titleRow.alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.mergeCells(4, 1, 4, 3);
+    }
+
+    // Style date range row if it exists (usually row 5) - merge only 3 columns
+    if (data.length >= 5 && Array.isArray(data[4]) && data[4][0] && 
+        (String(data[4][0]).toLowerCase().includes("to") || 
+         String(data[4][0]).toLowerCase().includes("onwards") ||
+         String(data[4][0]).toLowerCase().includes("up to") ||
+         String(data[4][0]).toLowerCase().includes("all payments"))) {
+      const dateRow = worksheet.getRow(5);
+      dateRow.alignment = { horizontal: "left", vertical: "middle" };
+      worksheet.mergeCells(5, 1, 5, 3);
+    }
+
+    // Style table header row if found
+    if (tableHeaderRowIndex > 0) {
+      const headerRow = worksheet.getRow(tableHeaderRowIndex);
+      headerRow.font = { bold: true };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE0E0E0" },
+      };
+    }
+
+    // Style sub-header row if found (for "Amount" labels)
+    if (subHeaderRowIndex > 0) {
+      const subHeaderRow = worksheet.getRow(subHeaderRowIndex);
+      subHeaderRow.font = { bold: true, italic: true };
+      subHeaderRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF5F5F5" },
+      };
+    }
+
+    // Style total row (last row)
+    const lastRowIndex = data.length;
+    if (lastRowIndex > 0) {
+      const lastRow = worksheet.getRow(lastRowIndex);
+      const firstCell = lastRow.getCell(1).value;
+      if (firstCell && String(firstCell).toLowerCase().includes("total")) {
+        lastRow.font = { bold: true };
+        lastRow.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFE8E8E8" },
+        };
+      }
+    }
+
+    // Auto-fit columns
+    worksheet.columns.forEach((column) => {
+      if (column) {
+        column.width = 20;
+      }
+    });
+  } else {
+    // Handle object format (array of objects) - like invoice exports
+    const firstRow = data[0];
+    worksheet.columns = Object.keys(firstRow).map((key) => ({
+      header: key.toUpperCase().replace(/_/g, " "),
+      key: key,
+      width: 20,
+    }));
+
+    // Add data rows
+    data.forEach((row) => {
+      worksheet.addRow(row);
+    });
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE0E0E0" },
+    };
+  }
 
   // Generate buffer
   const buffer = await workbook.xlsx.writeBuffer();
@@ -164,31 +269,131 @@ const exportInvoices = async (customerId, customer, startDate, endDate) => {
 
 
 /**
- * Export Payments
- * TODO: Specify which fields to include in export
+ * 🔹 Format date → DD-MMM-YYYY (e.g., "02-Nov-2025")
  */
-const exportPayments = async (customerId, customer,startDate,endDate) => {
-  console.log("💰 Exporting payments...");
+const formatReceiptDate = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ];
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
 
-  const payments = await PaymentRecieval.find({ customer: customerId })
-    .populate("customer", "name gst_no")
+/**
+ * 🔹 Export Payments (Receipt Register format)
+ * Creates a structured receipt register export matching the CSV format
+ */
+const exportPayments = async (customerId, customer, startDate, endDate) => {
+  console.log("💰 Exporting payments (receipt register format)...");
+
+  // 🗓️ Make date range inclusive
+  const dateFilter = {};
+  if (startDate && endDate) {
+    dateFilter.date_of_recieval = {
+      $gte: new Date(`${startDate}T00:00:00.000Z`),
+      $lte: new Date(`${endDate}T23:59:59.999Z`),
+    };
+  } else if (startDate) {
+    dateFilter.date_of_recieval = {
+      $gte: new Date(`${startDate}T00:00:00.000Z`),
+    };
+  } else if (endDate) {
+    dateFilter.date_of_recieval = {
+      $lte: new Date(`${endDate}T23:59:59.999Z`),
+    };
+  }
+
+  // 📅 Fetch payments within the date range for the specific customer
+  const payments = await PaymentRecieval.find({
+    customer: customerId,
+    ...dateFilter,
+  })
+    .populate("customer", "name gst_no address")
+    .sort({ date_of_recieval: 1, createdAt: 1 })
     .lean();
 
   if (!payments.length) {
-    throw new Error("No payments found");
+    throw new Error("No payments found in selected date range");
   }
 
-  // TODO: Map payment data to desired fields
-  // Example format - modify as needed:
-  const formattedData = payments.map((payment) => ({
-    date: formatDate(payment.date_of_recieval),
-    customer_name: payment.customer?.name || "",
-    amount: formatDecimal(payment.amount),
-    transaction_type: payment.transactionType,
-    transaction_id: payment.transactionId,
-    description: payment.description || "",
-    // Add more fields as needed
-  }));
+  // 🧾 Build structured export data matching CSV format
+  const formattedData = [];
+
+  // Row 1: Company name
+  formattedData.push(["MAGNEQ TRANSMISSION PRIVATE LIMITED"]);
+
+  // Row 2: Address line 1
+  formattedData.push(["PLOT NO.E-24/6, MIDC INDL.AREA,"]);
+
+  // Row 3: Address line 2
+  formattedData.push(["CHIKALTHANA, AURANGABAD"]);
+
+  // Row 4: Receipt Register title
+  formattedData.push(["Receipt Register"]);
+
+  // Row 5: Date range
+  if (startDate && endDate) {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+    formattedData.push([`${formatReceiptDate(start)} to ${formatReceiptDate(end)}`]);
+  } else if (startDate) {
+    formattedData.push([`${formatReceiptDate(new Date(`${startDate}T00:00:00.000Z`))} onwards`]);
+  } else if (endDate) {
+    formattedData.push([`up to ${formatReceiptDate(new Date(`${endDate}T23:59:59.999Z`))}`]);
+  } else {
+    formattedData.push(["All Payments"]);
+  }
+
+  // Row 6: Main header row
+  formattedData.push([
+    "Date",
+    "Particulars",
+    "Vch Type",
+    "Vch No.",
+    "Debit",
+    "Credit"
+  ]);
+
+  // Row 7: Sub-header row for Amount columns
+  formattedData.push([
+    "",
+    "",
+    "",
+    "",
+    "Amount",
+    "Amount"
+  ]);
+
+  // 🧾 Payment Entries
+  let totalAmount = 0;
+  payments.forEach((payment) => {
+    const amount = formatDecimal(payment.amount);
+    totalAmount += amount;
+
+    formattedData.push([
+      formatReceiptDate(payment.date_of_recieval),
+      payment.customer?.name || "N/A",
+      "Receipt",
+      payment.transactionId || "", // Using transactionId as voucher number
+      "", // Debit column always empty
+      amount.toFixed(2), // Credit column with amount
+    ]);
+  });
+
+  // 🧾 Total Row
+  formattedData.push([
+    "Total:",
+    "",
+    "",
+    "",
+    "",
+    totalAmount.toFixed(2),
+  ]);
 
   return formattedData;
 };
