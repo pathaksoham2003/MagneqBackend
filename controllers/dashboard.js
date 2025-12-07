@@ -3,6 +3,7 @@ import Purchase from "../models/Purchase.js";
 import Production from "../models/Production.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Invoice from "../models/Invoice.js";
+import Ledger from "../models/Ledger.js";
 import mongoose from "mongoose";
 
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
@@ -223,117 +224,112 @@ export const getTopCustomerStats = async (req, res) => {
 
     const customerId = mongoose.Types.ObjectId.createFromHexString(id);
     
-    // Get all invoices for the customer with invoice_date and items (for total_with_tax calculation)
-    const customerInvoices = await Invoice.find({ 
+    // Get ALL ledger entries for the customer (complete history - no date filtering)
+    const allLedgerEntries = await Ledger.find({ 
       customer_id: customerId 
     })
-    .select('invoice_date due_date items');
+    .populate('invoice_id', 'due_date') // Populate invoice to get due_date for overdue calculation
+    .sort({ date: 1, createdAt: 1 })
+    .lean();
     
-    // Get all payment receivals for the customer
-    const customerPayments = await PaymentRecieval.find({ 
-      customer: customerId 
-    }).select('amount date_of_recieval');
+    // Separate DEBIT and CREDIT entries
+    const debitEntries = allLedgerEntries.filter(entry => entry.type === "DEBIT");
+    const creditEntries = allLedgerEntries.filter(entry => entry.type === "CREDIT");
     
-    // Calculate total sales (sum of total_with_tax from all invoice items)
-    const totalAmountToBePaid = customerInvoices.reduce((sum, invoice) => {
-      const invoiceTotal = invoice.items.reduce((itemSum, item) => {
-        const itemTotal = item.total_with_tax ? parseFloat(item.total_with_tax.toString()) : 0;
-        return itemSum + itemTotal;
-      }, 0);
-      return sum + invoiceTotal;
-    }, 0);
-    
-    // Calculate total payment received ONLY from PaymentRecieval collection
-    const totalPaymentReceived = customerPayments.reduce((sum, payment) => {
-      const amount = payment.amount ? parseFloat(payment.amount.toString()) : 0;
+    // Calculate total sales = sum of all DEBIT entries
+    const totalOrderAmount = debitEntries.reduce((sum, entry) => {
+      const amount = entry.amount ? parseFloat(entry.amount.toString()) : 0;
       return sum + amount;
     }, 0);
+    
+    // Calculate total payment received = sum of all CREDIT entries
+    const totalPaymentReceived = creditEntries.reduce((sum, entry) => {
+      const amount = entry.amount ? parseFloat(entry.amount.toString()) : 0;
+      return sum + amount;
+    }, 0);
+
+    // Get outstanding amount from the latest running_balance
+    // If no entries exist, outstanding is 0
+    let outstandingAmount = 0;
+    let overpaidAmount = 0;
+    
+    if (allLedgerEntries.length > 0) {
+      // Get the latest entry (last one after sorting by date)
+      const latestEntry = allLedgerEntries[allLedgerEntries.length - 1];
+      const runningBalance = latestEntry.running_balance 
+        ? parseFloat(latestEntry.running_balance.toString()) 
+        : 0;
+      
+      // If running balance is positive, it's outstanding amount
+      // If running balance is negative, it's overpaid amount
+      if (runningBalance > 0) {
+        outstandingAmount = runningBalance;
+      } else if (runningBalance < 0) {
+        overpaidAmount = Math.abs(runningBalance);
+      }
+    }
 
     // Calculate overdue payment based on invoices older than 45 days
     // Use IST timezone for consistent date calculations
     const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
     const fortyFiveDaysAgo = new Date(now.getTime() - (45 * 24 * 60 * 60 * 1000));
     
-    // Filter invoices that are older than 45 days
-    const overdueInvoices = customerInvoices.filter(invoice => {
-      // Convert invoice date to IST for consistent comparison
-      const invoiceDate = new Date(new Date(invoice.invoice_date).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
-      return invoiceDate < fortyFiveDaysAgo;
-    });
-    
-    // Calculate total amount for overdue invoices (sum of total_with_tax from invoice items)
-    const totalOverdueInvoiceAmount = overdueInvoices.reduce((sum, invoice) => {
-      const invoiceTotal = invoice.items.reduce((itemSum, item) => {
-        const itemTotal = item.total_with_tax ? parseFloat(item.total_with_tax.toString()) : 0;
-        return itemSum + itemTotal;
-      }, 0);
-      return sum + invoiceTotal;
-    }, 0);
-    
-    // Calculate overdue payment using FIFO payment allocation
-    // Sort invoices by date (oldest first) and payments by date (oldest first)
-    const sortedInvoices = customerInvoices
-      .map(invoice => {
-        // Calculate total_with_tax for this invoice
-        const invoiceTotal = invoice.items.reduce((itemSum, item) => {
-          const itemTotal = item.total_with_tax ? parseFloat(item.total_with_tax.toString()) : 0;
-          return itemSum + itemTotal;
-        }, 0);
-        
+    // Get DEBIT entries that have invoice_id (actual invoices, not admin-added entries)
+    // and are older than 45 days
+    const invoiceDebitEntries = debitEntries
+      .filter(entry => entry.invoice_id) // Only entries with invoice_id (actual invoices)
+      .map(entry => {
+        const entryDate = new Date(new Date(entry.date).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
         return {
-          ...invoice,
-          amount: invoiceTotal,
-          invoiceDate: new Date(new Date(invoice.invoice_date).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}))
+          ...entry,
+          amount: parseFloat(entry.amount.toString()),
+          entryDate: entryDate,
+          isOverdue: entryDate < fortyFiveDaysAgo
         };
       })
-      .sort((a, b) => a.invoiceDate - b.invoiceDate);
+      .sort((a, b) => a.entryDate - b.entryDate); // Sort by date (oldest first)
     
-    const sortedPayments = customerPayments
-      .map(payment => ({
-        amount: payment.amount ? parseFloat(payment.amount.toString()) : 0,
-        paymentDate: new Date(new Date(payment.date_of_recieval).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}))
+    // Sort CREDIT entries by date (oldest first) for FIFO allocation
+    const sortedCreditEntries = creditEntries
+      .map(entry => ({
+        amount: parseFloat(entry.amount.toString()),
+        entryDate: new Date(new Date(entry.date).toLocaleString("en-US", {timeZone: "Asia/Kolkata"}))
       }))
-      .sort((a, b) => a.paymentDate - b.paymentDate);
+      .sort((a, b) => a.entryDate - b.entryDate);
     
-    // Allocate payments to invoices using FIFO
+    // Allocate payments (CREDIT entries) to invoices (DEBIT entries) using FIFO
     let remainingPayment = totalPaymentReceived;
     let overduePayment = 0;
     
-    for (const invoice of sortedInvoices) {
+    for (const debitEntry of invoiceDebitEntries) {
       if (remainingPayment <= 0) {
         // No more payments to allocate, check if this invoice is overdue
-        if (invoice.invoiceDate < fortyFiveDaysAgo) {
-          overduePayment += invoice.amount;
+        if (debitEntry.isOverdue) {
+          overduePayment += debitEntry.amount;
         }
       } else {
         // Allocate payment to this invoice
-        const paymentToAllocate = Math.min(remainingPayment, invoice.amount);
+        const paymentToAllocate = Math.min(remainingPayment, debitEntry.amount);
         remainingPayment -= paymentToAllocate;
         
         // Check if this invoice is overdue and has remaining unpaid amount
-        if (invoice.invoiceDate < fortyFiveDaysAgo) {
-          const unpaidAmount = invoice.amount - paymentToAllocate;
+        if (debitEntry.isOverdue) {
+          const unpaidAmount = debitEntry.amount - paymentToAllocate;
           overduePayment += Math.max(0, unpaidAmount);
         }
       }
-     }
+    }
 
-    // Calculate outstanding amount (total invoiced amount - received amount)
-    const outstandingAmount = Math.max(0, totalAmountToBePaid - totalPaymentReceived);
+    // Count total invoices = number of DEBIT entries with invoice_id
+    const totalInvoices = debitEntries.filter(entry => entry.invoice_id).length;
 
-    // Calculate overpaid amount (if customer paid more than required)
-    const overpaidAmount = Math.max(0, totalPaymentReceived - totalAmountToBePaid);
-
-    // Additional statistics
-    const totalInvoices = customerInvoices.length;
-
-    // Average invoice value
-    const averageInvoiceValue = totalInvoices > 0 ? totalAmountToBePaid / totalInvoices : 0;
+    // Average invoice value = total sales / total invoices
+    const averageInvoiceValue = totalInvoices > 0 ? totalOrderAmount / totalInvoices : 0;
 
     const customerStats = {
-      totalOrderAmount: parseFloat(totalAmountToBePaid.toFixed(2)),
+      totalOrderAmount: parseFloat(totalOrderAmount.toFixed(2)),
       totalPaymentReceived: parseFloat(totalPaymentReceived.toFixed(2)),
-      totalOutstandingPayment: parseFloat(outstandingAmount.toFixed(2)), // total invoiced - received amount
+      totalOutstandingPayment: parseFloat(outstandingAmount.toFixed(2)), // from running_balance
       totalOverheadPayment: parseFloat(overpaidAmount.toFixed(2)),
       totalOverduePayment: parseFloat(overduePayment.toFixed(2)),
       totalInvoices,
