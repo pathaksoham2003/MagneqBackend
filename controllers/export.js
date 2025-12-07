@@ -56,10 +56,12 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
         const firstCell = String(data[i][0]).toLowerCase();
         if (firstCell === "date" || firstCell.includes("date")) {
           tableHeaderRowIndex = i + 1; // Excel rows are 1-indexed
-          // Check if next row is a sub-header (contains "Amount")
+          // Check if next row is a sub-header (contains "Amount" or "KGS")
           if (i + 1 < data.length && Array.isArray(data[i + 1])) {
             const nextRow = data[i + 1];
-            if (nextRow.length > 4 && String(nextRow[4]).toLowerCase() === "amount") {
+            const hasAmount = nextRow.length > 4 && String(nextRow[4]).toLowerCase() === "amount";
+            const hasKGS = nextRow.length > 3 && String(nextRow[3]).toLowerCase() === "kgs";
+            if (hasAmount || hasKGS) {
               subHeaderRowIndex = i + 2; // Excel rows are 1-indexed
             }
           }
@@ -77,9 +79,10 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
       worksheet.mergeCells(1, 1, 1, maxCols);
     }
 
-    // Style "Receipt Register" title row if it exists (usually row 4) - merge only 3 columns
+    // Style "Receipt Register" or "Sales Register" title row if it exists (usually row 4) - merge only 3 columns
     if (data.length >= 4 && Array.isArray(data[3]) && data[3][0] && 
-        String(data[3][0]).toLowerCase().includes("receipt register")) {
+        (String(data[3][0]).toLowerCase().includes("receipt register") ||
+         String(data[3][0]).toLowerCase().includes("sales register"))) {
       const titleRow = worksheet.getRow(4);
       titleRow.font = { bold: true, size: 12 };
       titleRow.alignment = { horizontal: "center", vertical: "middle" };
@@ -91,7 +94,8 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
         (String(data[4][0]).toLowerCase().includes("to") || 
          String(data[4][0]).toLowerCase().includes("onwards") ||
          String(data[4][0]).toLowerCase().includes("up to") ||
-         String(data[4][0]).toLowerCase().includes("all payments"))) {
+         String(data[4][0]).toLowerCase().includes("all payments") ||
+         String(data[4][0]).toLowerCase().includes("all invoices"))) {
       const dateRow = worksheet.getRow(5);
       dateRow.alignment = { horizontal: "left", vertical: "middle" };
       worksheet.mergeCells(5, 1, 5, 3);
@@ -119,12 +123,14 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
       };
     }
 
-    // Style total row (last row)
+    // Style total row (last row) - check for "Total" or "Grand Total"
     const lastRowIndex = data.length;
     if (lastRowIndex > 0) {
       const lastRow = worksheet.getRow(lastRowIndex);
       const firstCell = lastRow.getCell(1).value;
-      if (firstCell && String(firstCell).toLowerCase().includes("total")) {
+      const secondCell = lastRow.getCell(2).value;
+      if ((firstCell && String(firstCell).toLowerCase().includes("total")) ||
+          (secondCell && String(secondCell).toLowerCase().includes("grand total"))) {
         lastRow.font = { bold: true };
         lastRow.fill = {
           type: "pattern",
@@ -182,21 +188,27 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
 // EXPORT TYPE HANDLERS
 // ========================================
 
+/**
+ * 🔹 Export Invoices (Sales Register format)
+ * Creates a structured sales register export matching the Excel format
+ */
 const exportInvoices = async (customerId, customer, startDate, endDate) => {
-  console.log("📋 Exporting invoices (with inclusive date filter)...");
+  console.log("📋 Exporting invoices (sales register format)...");
 
   // Inclusive date filter
   const dateFilter = {};
   if (startDate && endDate) {
     dateFilter.invoice_date = {
-      $gte: new Date(startDate),
-      $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)), // include full end day
+      $gte: new Date(`${startDate}T00:00:00.000Z`),
+      $lte: new Date(`${endDate}T23:59:59.999Z`),
     };
   } else if (startDate) {
-    dateFilter.invoice_date = { $gte: new Date(startDate) };
+    dateFilter.invoice_date = {
+      $gte: new Date(`${startDate}T00:00:00.000Z`),
+    };
   } else if (endDate) {
     dateFilter.invoice_date = {
-      $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+      $lte: new Date(`${endDate}T23:59:59.999Z`),
     };
   }
 
@@ -205,7 +217,7 @@ const exportInvoices = async (customerId, customer, startDate, endDate) => {
     customer_id: customerId,
     ...dateFilter,
   })
-    .populate("customer_id", "name gst_no address")
+    .populate("customer_id", "name gst_no address state")
     .sort({ invoice_date: 1 })
     .lean();
 
@@ -213,56 +225,195 @@ const exportInvoices = async (customerId, customer, startDate, endDate) => {
     throw new Error("No invoices found in selected date range");
   }
 
+  // 🧾 Build structured export data matching Sales Register format
   const formattedData = [];
 
+  // Row 1: Company name
+  formattedData.push(["MAGNEQ TRANSMISSION PRIVATE LIMITED"]);
+
+  // Row 2: Address line 1
+  formattedData.push(["PLOT NO.E-24/6, MIDC INDL.AREA,"]);
+
+  // Row 3: Address line 2
+  formattedData.push(["CHIKALTHANA, AURANGABAD"]);
+
+  // Row 4: Sales Register title
+  formattedData.push(["Sales Register"]);
+
+  // Row 5: Date range
+  if (startDate && endDate) {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+    formattedData.push([`${formatReceiptDate(start)} to ${formatReceiptDate(end)}`]);
+  } else if (startDate) {
+    formattedData.push([`${formatReceiptDate(new Date(`${startDate}T00:00:00.000Z`))} onwards`]);
+  } else if (endDate) {
+    formattedData.push([`up to ${formatReceiptDate(new Date(`${endDate}T23:59:59.999Z`))}`]);
+  } else {
+    formattedData.push(["All Invoices"]);
+  }
+
+  // Row 6: Main header row
+  formattedData.push([
+    "Date",
+    "Particulars",
+    "Voucher Type",
+    "Kgs",
+    "Voucher No.",
+    "Voucher Ref. No.",
+    "Quantity",
+    "Value",
+    "Gross Total",
+    "SALES SCRAP",
+    "OUTPUT CGST 9%",
+    "OUTPUT SGST 9%",
+    "ROUND OFF",
+    "SALES IGST 18%",
+    "OUTPUT IGST 18%",
+    "SALES GST"
+  ]);
+
+  // Row 7: Sub-header row (some columns have sub-headers)
+  formattedData.push([
+    "",
+    "",
+    "",
+    "KGS",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]);
+
+  // 🧾 Invoice Entries - one row per invoice
+  let grandTotalQuantity = 0;
+  let grandTotalValue = 0;
+  let grandTotalGross = 0;
+  let grandTotalScrap = 0;
+  let grandTotalCGST = 0;
+  let grandTotalSGST = 0;
+  let grandTotalRoundOff = 0;
+  let grandTotalIGST = 0;
+  let grandTotalOutputIGST = 0;
+  let grandTotalGST = 0;
+
   invoices.forEach((inv) => {
+    // Check if interstate (different state)
+    const customerState = inv.customer_id?.state || "";
+    const companyState = "Maharashtra"; // Company is in Maharashtra
+    const isInterState = customerState && customerState.toLowerCase() !== "maharashtra";
+
+    // Aggregate invoice data from invoice items
+    let totalQuantity = 0;
+    let totalValue = 0; // Base amount before tax (sum of invoiced_amount)
+    let totalCGST = 0;
+    let totalSGST = 0;
+    let totalIGST = 0;
+    let totalOutputIGST = 0;
+    let totalGST = 0;
+
+    // Use invoice's total_invoice_amount as the gross total (includes all taxes)
+    const totalGross = formatDecimal(inv.total_invoice_amount);
+
     if (inv.items && inv.items.length > 0) {
-      inv.items.forEach((item, idx) => {
-        // Generate 3-digit item code (001–999)
-        const itemCode = String(idx + 1).padStart(3, "0");
+      inv.items.forEach((item) => {
+        const quantity = item.invoiced_quantity || 0;
+        const baseAmount = formatDecimal(item.invoiced_amount);
+        
+        totalQuantity += quantity;
+        totalValue += baseAmount;
 
-        formattedData.push({
-          invoice_number: inv.invoice_number,
-          invoice_date: formatDate(inv.invoice_date),
-          due_date: formatDate(inv.due_date),
-          customer_name: inv.customer_id?.name || "",
-          customer_gst: inv.customer_id?.gst_no || "",
-          status: inv.status,
-          transport_details: inv.transport_details || "",
-          lr_number: inv.lr_number || "",
-          total_amount: formatDecimal(inv.total_invoice_amount),
-
-          // Item-level fields (stay on same row)
-          item_code: itemCode,
-          item_description:
-            item.description ||
-            `${item.finished_good_snapshot?.model || ""} ${item.finished_good_snapshot?.type || ""} ${item.finished_good_snapshot?.ratio || ""} ${item.finished_good_snapshot?.power || ""}`.trim(),
-          quantity: item.invoiced_quantity,
-          rate: formatDecimal(item.rate_per_unit),
-          amount: formatDecimal(item.invoiced_amount),
-        });
+        // Get tax details from invoice item taxes array
+        if (item.taxes && item.taxes.length > 0) {
+          item.taxes.forEach((tax) => {
+            const taxAmount = formatDecimal(tax.amount);
+            if (tax.type === "CGST") {
+              totalCGST += taxAmount;
+            } else if (tax.type === "SGST") {
+              totalSGST += taxAmount;
+            } else if (tax.type === "IGST") {
+              totalIGST += taxAmount;
+              totalOutputIGST += taxAmount;
+            }
+          });
+        }
       });
     } else {
-      // Handle invoices without items
-      formattedData.push({
-        invoice_number: inv.invoice_number,
-        invoice_date: formatDate(inv.invoice_date),
-        due_date: formatDate(inv.due_date),
-        customer_name: inv.customer_id?.name || "",
-        customer_gst: inv.customer_id?.gst_no || "",
-        status: inv.status,
-        transport_details: inv.transport_details || "",
-        lr_number: inv.lr_number || "",
-        total_amount: formatDecimal(inv.total_invoice_amount),
-
-        item_code: "",
-        item_description: "",
-        quantity: "",
-        rate: "",
-        amount: "",
-      });
+      // Handle invoices without items - use invoice total as value
+      totalValue = totalGross;
     }
+
+    // Calculate total GST (sum of all tax types)
+    totalGST = totalCGST + totalSGST + totalIGST;
+
+    // Calculate round off (difference between invoice gross total and calculated value + GST)
+    const calculatedTotal = totalValue + totalGST;
+    const roundOff = totalGross - calculatedTotal;
+
+    // Format invoice number (e.g., "25-26/370")
+    const invoiceYear = new Date(inv.invoice_date).getFullYear();
+    const shortYear = invoiceYear % 100;
+    const nextYear = shortYear + 1;
+    const voucherNo = `${shortYear}-${nextYear}/${inv.invoice_number}`;
+
+    formattedData.push([
+      formatReceiptDate(inv.invoice_date),
+      inv.customer_id?.name || "N/A",
+      "Sales",
+      "", // Kgs - empty for now
+      voucherNo,
+      inv.lr_number || "", // Voucher Ref. No. - using LR number
+      totalQuantity > 0 ? `${totalQuantity.toFixed(0)} NOS` : "",
+      totalValue.toFixed(2),
+      `${totalGross.toFixed(2)} Dr`,
+      "", // SALES SCRAP - empty for now
+      totalCGST > 0 ? `${totalCGST.toFixed(2)} Cr` : "",
+      totalSGST > 0 ? `${totalSGST.toFixed(2)} Cr` : "",
+      roundOff !== 0 ? `${Math.abs(roundOff).toFixed(2)} ${roundOff > 0 ? "Cr" : "Dr"}` : "",
+      totalIGST > 0 ? `${totalIGST.toFixed(2)} Cr` : "",
+      totalOutputIGST > 0 ? `${totalOutputIGST.toFixed(2)} Cr` : "",
+      totalGST > 0 ? `${totalGST.toFixed(2)} Cr` : "",
+    ]);
+
+    // Add to grand totals
+    grandTotalQuantity += totalQuantity;
+    grandTotalValue += totalValue;
+    grandTotalGross += totalGross;
+    grandTotalCGST += totalCGST;
+    grandTotalSGST += totalSGST;
+    grandTotalRoundOff += roundOff;
+    grandTotalIGST += totalIGST;
+    grandTotalOutputIGST += totalOutputIGST;
+    grandTotalGST += totalGST;
   });
+
+  // 🧾 Grand Total Row
+  formattedData.push([
+    "",
+    "Grand Total",
+    "",
+    "",
+    "",
+    "",
+    grandTotalQuantity > 0 ? grandTotalQuantity.toFixed(0) : "",
+    grandTotalValue.toFixed(2),
+    `${grandTotalGross.toFixed(2)} Dr`,
+    grandTotalScrap > 0 ? `${grandTotalScrap.toFixed(2)} Cr` : "",
+    grandTotalCGST > 0 ? `${grandTotalCGST.toFixed(2)} Cr` : "",
+    grandTotalSGST > 0 ? `${grandTotalSGST.toFixed(2)} Cr` : "",
+    grandTotalRoundOff !== 0 ? `${Math.abs(grandTotalRoundOff).toFixed(2)} ${grandTotalRoundOff > 0 ? "Cr" : "Dr"}` : "",
+    grandTotalIGST > 0 ? `${grandTotalIGST.toFixed(2)} Cr` : "",
+    grandTotalOutputIGST > 0 ? `${grandTotalOutputIGST.toFixed(2)} Cr` : "",
+    grandTotalGST > 0 ? `${grandTotalGST.toFixed(2)} Cr` : "",
+  ]);
 
   return formattedData;
 };
