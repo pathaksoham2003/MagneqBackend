@@ -354,17 +354,21 @@ export const addDailyProduction = async (req, res) => {
       const { model, type, ratio, power, quantity } = item;
 
       if (!model || !type || !ratio || !power || !quantity) {
+        const itemIdentifier = `${model || 'N/A'}-${type || 'N/A'}-${ratio || 'N/A'}-${power || 'N/A'}`;
         errors.push({
           item: { model, type, ratio, power, quantity },
-          error: "All fields (model, type, ratio, power, quantity) are required"
+          itemIdentifier: itemIdentifier,
+          error: `Missing required fields for ${itemIdentifier}. All fields (model, type, ratio, power, quantity) are required`
         });
         continue;
       }
 
       if (quantity <= 0) {
+        const itemIdentifier = `${model}-${type}-${ratio}-${power}`;
         errors.push({
           item: { model, type, ratio, power, quantity },
-          error: "Quantity must be greater than 0"
+          itemIdentifier: itemIdentifier,
+          error: `Invalid quantity for ${itemIdentifier}. Quantity must be greater than 0`
         });
         continue;
       }
@@ -378,9 +382,11 @@ export const addDailyProduction = async (req, res) => {
       });
 
       if (!finishedGood) {
+        const itemIdentifier = `${model}-${type}-${ratio}-${power}`;
         errors.push({
           item: { model, type, ratio, power, quantity },
-          error: "Finished good not found"
+          itemIdentifier: itemIdentifier,
+          error: `Finished good not found: ${itemIdentifier}`
         });
         continue;
       }
@@ -393,9 +399,11 @@ export const addDailyProduction = async (req, res) => {
       for (const rm of finishedGood.raw_materials) {
         const material = await RawMaterials.findById(rm.raw_material_id);
         if (!material || typeof material.quantity !== "object") {
+          const itemIdentifier = `${model}-${type}-${ratio}-${power}`;
           errors.push({
             item: { model, type, ratio, power, quantity },
-            error: `Invalid raw material found: ${material?.name || 'Unknown'}`
+            itemIdentifier: itemIdentifier,
+            error: `Invalid raw material in BOM for ${itemIdentifier}: ${material?.name || 'Unknown'}`
           });
           maxProducibleQuantity = 0;
           break;
@@ -419,11 +427,14 @@ export const addDailyProduction = async (req, res) => {
         const limitingMaterials = rawMaterialLimits.filter(rm => rm.maxProducible < quantity);
         const limitingMaterialNames = limitingMaterials.map(rm => `${rm.material} (max: ${rm.maxProducible})`).join(', ');
         
+        const itemIdentifier = `${model}-${type}-${ratio}-${power}`;
         errors.push({
           item: { model, type, ratio, power, quantity },
-          error: `Insufficient raw materials. Maximum producible: ${maxProducibleQuantity}. Limiting materials: ${limitingMaterialNames}`,
+          itemIdentifier: itemIdentifier,
+          error: `Insufficient BOM materials for ${itemIdentifier}. Requested: ${quantity}, Maximum producible: ${maxProducibleQuantity}. Limiting materials: ${limitingMaterialNames}`,
           maxProducible: maxProducibleQuantity,
-          rawMaterialLimits: rawMaterialLimits
+          rawMaterialLimits: rawMaterialLimits,
+          requestedQuantity: quantity
         });
         continue;
       }
@@ -501,17 +512,32 @@ export const addDailyProduction = async (req, res) => {
       });
     }
 
+    // If no items were processed successfully, return error
     if (results.length === 0) {
       return res.status(400).json({
         error: "No finished goods were processed successfully",
-        errors
+        errors,
+        results: []
       });
     }
 
-    res.status(201).json({
-      message: `Successfully added production for ${results.length} finished good(s)`,
+    // Build response message based on success/failure
+    let message = `Successfully added production for ${results.length} finished good(s)`;
+    if (errors.length > 0) {
+      message += `. ${errors.length} item(s) could not be added due to insufficient BOM materials or other errors.`;
+    }
+
+    // Determine appropriate status code
+    // 207 = Multi-Status (partial success), but many clients don't handle it well
+    // So we'll use 201 (Created) but make errors very clear
+    const statusCode = errors.length > 0 ? 201 : 201; // Keep 201 but make errors prominent
+
+    res.status(statusCode).json({
+      message,
+      success: results.length,
+      failed: errors.length,
       results,
-      errors: errors.length > 0 ? errors : undefined
+      errors: errors.length > 0 ? errors : []
     });
   } catch (err) {
     console.error("Error in addDailyProduction:", err);
