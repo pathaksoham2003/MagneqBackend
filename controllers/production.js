@@ -65,8 +65,7 @@ export const getPendingProductionOrders = async (req, res) => {
       }
     }
 
-    const totalItems = await Production.countDocuments(query);
-
+    // Get all productions without pagination first
     const productions = await Production.find(query)
       .populate({
         path: "finished_good",
@@ -75,11 +74,10 @@ export const getPendingProductionOrders = async (req, res) => {
           model: "RawMaterials",
         },
       })
-      .skip((page - 1) * limit)
-      .limit(limit)
       .sort({ createdAt: -1 });
 
-    const items = productions.map((production) => {
+    // Map and filter items first
+    const allItems = productions.map((production) => {
       const fg = production.finished_good;
       const orderDetails = getFgModelNumber(fg);
 
@@ -112,7 +110,13 @@ export const getPendingProductionOrders = async (req, res) => {
           fg.units || 0, // Current FG Stock Quantity
         ],
       };
-    }).filter(item=>item.data[2] > 0)
+    }).filter(item => item.data[2] > 0);
+
+    // Apply pagination after filtering
+    const totalItems = allItems.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const items = allItems.slice(startIndex, endIndex);
 
     res.status(200).json({
       header: [
