@@ -136,6 +136,132 @@ export const getPendingProductionOrders = async (req, res) => {
   }
 };
 
+export const getPendingProductionOrdersFromSales = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search;
+
+    // Get all sales orders with INPROCESS status
+    let salesQuery = { status: "INPROCESS" };
+    
+    if (search) {
+      const orderId = parseInt(search);
+      if (!isNaN(orderId)) {
+        salesQuery.order_id = orderId;
+      }
+    }
+
+    const salesOrders = await Sales.find(salesQuery)
+      .populate({
+        path: "finished_goods.finished_good",
+        model: "FinishedGoods",
+      })
+      .sort({ createdAt: -1 });
+
+    // Group finished goods and sum their sales quantities
+    const fgSalesMap = new Map(); // Map<finished_good_id, {fg, totalSalesQuantity}>
+
+    for (const salesOrder of salesOrders) {
+      for (const salesItem of salesOrder.finished_goods) {
+        // Handle both populated and non-populated cases
+        let finishedGoodId;
+        let finishedGood;
+        
+        if (salesItem.finished_good) {
+          if (typeof salesItem.finished_good === 'object' && salesItem.finished_good._id) {
+            // Populated
+            finishedGoodId = salesItem.finished_good._id;
+            finishedGood = salesItem.finished_good;
+          } else if (typeof salesItem.finished_good === 'object') {
+            // ObjectId as object
+            finishedGoodId = salesItem.finished_good;
+            finishedGood = null;
+          } else {
+            // ObjectId as string
+            finishedGoodId = salesItem.finished_good;
+            finishedGood = null;
+          }
+        }
+        
+        if (!finishedGoodId) continue;
+
+        // If finished good wasn't populated, fetch it
+        if (!finishedGood) {
+          finishedGood = await FinishedGoods.findById(finishedGoodId);
+          if (!finishedGood) continue;
+        }
+
+        // Calculate remaining sales quantity: order quantity - invoiced quantity
+        const orderQuantity = salesItem.quantity || 0;
+        const invoicedQuantity = salesItem.invoiced_quantity || 0;
+        const remainingSalesQuantity = Math.max(0, orderQuantity - invoicedQuantity);
+
+        if (remainingSalesQuantity > 0) {
+          if (fgSalesMap.has(finishedGoodId.toString())) {
+            // Add to existing entry
+            const existing = fgSalesMap.get(finishedGoodId.toString());
+            existing.totalSalesQuantity += remainingSalesQuantity;
+          } else {
+            // Create new entry
+            fgSalesMap.set(finishedGoodId.toString(), {
+              fg: finishedGood,
+              totalSalesQuantity: remainingSalesQuantity,
+            });
+          }
+        }
+      }
+    }
+
+    // Convert map to array and calculate production required
+    const allItems = [];
+    for (const [finishedGoodId, { fg, totalSalesQuantity }] of fgSalesMap.entries()) {
+      // Get current FG units
+      const currentUnits = fg.units || 0;
+      
+      // Calculate production required: total sales quantity - current FG units
+      const productionRequired = Math.max(0, totalSalesQuantity - currentUnits);
+
+      // Only include items with production required > 0
+      if (productionRequired > 0) {
+        const orderDetails = getFgModelNumber(fg);
+        
+        allItems.push({
+          id: fg._id,
+          data: [
+            orderDetails, // Finished Good
+            totalSalesQuantity, // Total Sales Quantity
+            productionRequired, // Production Pending Quantity
+            currentUnits, // Current FG Stock Quantity
+          ],
+        });
+      }
+    }
+
+    // Apply pagination after filtering
+    const totalItems = allItems.length;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const items = allItems.slice(startIndex, endIndex);
+
+    res.status(200).json({
+      header: [
+        "Finished Good",
+        "Total Sales Quantity",
+        "Production Pending Quantity",
+        "Current FG Stock Quantity",
+      ],
+      item: items,
+      page_no: page,
+      total_pages: Math.ceil(totalItems / limit),
+      total_items: totalItems,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 export const getProductionDetails = async (req, res) => {
   try {
     const production = await Production.findById(req.params.id).populate(

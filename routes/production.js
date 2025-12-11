@@ -9,6 +9,7 @@ import {
   cleanupDuplicateProductions,
   recalculateProductionQuantities,
   checkRawMaterialAvailability,
+  getPendingProductionOrdersFromSales,
 } from '../controllers/production.js';
 
 const router = express.Router();
@@ -80,7 +81,8 @@ const router = express.Router();
  *                   type: integer
  *                   example: 12
  */
-router.get('/', getPendingProductionOrders);
+// router.get('/', getPendingProductionOrders);
+router.get('/', getPendingProductionOrdersFromSales);
 router.post('/create_pro',createProductionOrder);
 router.post('/daily-production', addDailyProduction);
 router.post('/cleanup-duplicates', cleanupDuplicateProductions);
