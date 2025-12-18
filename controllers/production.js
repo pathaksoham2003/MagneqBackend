@@ -144,7 +144,7 @@ export const getPendingProductionOrdersFromSales = async (req, res) => {
 
     // Get all sales orders with INPROCESS status
     let salesQuery = { status: "INPROCESS" };
-    
+
     if (search) {
       const orderId = parseInt(search);
       if (!isNaN(orderId)) {
@@ -167,7 +167,7 @@ export const getPendingProductionOrdersFromSales = async (req, res) => {
         // Handle both populated and non-populated cases
         let finishedGoodId;
         let finishedGood;
-        
+
         if (salesItem.finished_good) {
           if (typeof salesItem.finished_good === 'object' && salesItem.finished_good._id) {
             // Populated
@@ -183,7 +183,7 @@ export const getPendingProductionOrdersFromSales = async (req, res) => {
             finishedGood = null;
           }
         }
-        
+
         if (!finishedGoodId) continue;
 
         // If finished good wasn't populated, fetch it
@@ -218,14 +218,14 @@ export const getPendingProductionOrdersFromSales = async (req, res) => {
     for (const [finishedGoodId, { fg, totalSalesQuantity }] of fgSalesMap.entries()) {
       // Get current FG units
       const currentUnits = fg.units || 0;
-      
+
       // Calculate production required: total sales quantity - current FG units
       const productionRequired = Math.max(0, totalSalesQuantity - currentUnits);
 
       // Only include items with production required > 0
       if (productionRequired > 0) {
         const orderDetails = getFgModelNumber(fg);
-        
+
         allItems.push({
           id: fg._id,
           data: [
@@ -264,9 +264,9 @@ export const getPendingProductionOrdersFromSales = async (req, res) => {
 
 export const getProductionDetails = async (req, res) => {
   try {
-    const production = await Production.findById(req.params.id).populate(
-      "finished_good"
-    );
+    const production = await Production.findOne({
+      finished_good: req.params.id
+    }).populate("finished_good");
     if (!production)
       return res.status(404).json({ message: "Production not found" });
 
@@ -365,9 +365,8 @@ export const startProduction = async (req, res) => {
 
         if (availableQty < requiredQty) {
           return res.status(400).json({
-            error: `Insufficient processed quantity for material: ${
-              material.name || "Unnamed"
-            }`,
+            error: `Insufficient processed quantity for material: ${material.name || "Unnamed"
+              }`,
           });
         }
 
@@ -472,8 +471,8 @@ export const addDailyProduction = async (req, res) => {
     const { finished_goods } = req.body;
 
     if (!finished_goods || !Array.isArray(finished_goods) || finished_goods.length === 0) {
-      return res.status(400).json({ 
-        error: "Finished goods array is required and must not be empty" 
+      return res.status(400).json({
+        error: "Finished goods array is required and must not be empty"
       });
     }
 
@@ -541,7 +540,7 @@ export const addDailyProduction = async (req, res) => {
 
         const availableQty = material.quantity.processed || 0;
         const maxFromThisMaterial = Math.floor(availableQty / rm.quantity);
-        
+
         rawMaterialLimits.push({
           material: `${material.name} | ${material.type}` || 'Unknown',
           available: availableQty,
@@ -556,7 +555,7 @@ export const addDailyProduction = async (req, res) => {
       if (maxProducibleQuantity < quantity) {
         const limitingMaterials = rawMaterialLimits.filter(rm => rm.maxProducible < quantity);
         const limitingMaterialNames = limitingMaterials.map(rm => `${rm.material} (max: ${rm.maxProducible})`).join(', ');
-        
+
         const itemIdentifier = `${model}-${type}-${ratio}-${power}`;
         errors.push({
           item: { model, type, ratio, power, quantity },
@@ -736,7 +735,7 @@ export const cleanupDuplicateProductions = async (req, res) => {
 export const recalculateProductionQuantities = async (req, res) => {
   try {
     const { finished_good_id } = req.body;
-    
+
     let query = {};
     if (finished_good_id) {
       query.finished_good = finished_good_id;
@@ -753,12 +752,12 @@ export const recalculateProductionQuantities = async (req, res) => {
       });
 
       let totalRequiredQuantity = 0;
-      
+
       for (const salesOrder of salesOrders) {
         const salesItem = salesOrder.finished_goods.find(
           item => item.finished_good.toString() === production.finished_good._id.toString()
         );
-        
+
         if (salesItem) {
           // Calculate remaining quantity needed (total ordered - already invoiced)
           const remainingQuantity = salesItem.quantity - (salesItem.invoiced_quantity || 0);
@@ -828,7 +827,7 @@ export const checkRawMaterialAvailability = async (req, res) => {
 
       const availableQty = material.quantity.processed || 0;
       const maxFromThisMaterial = Math.floor(availableQty / rm.quantity);
-      
+
       rawMaterialLimits.push({
         material_id: material._id,
         material_name: material.name || 'Unknown',
