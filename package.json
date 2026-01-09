@@ -20,6 +20,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.0.0",
     "mongoose": "^8.16.0",
     "mongoose-sequence": "^6.0.1",
     "puppeteer": "^21.11.0",
