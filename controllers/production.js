@@ -271,9 +271,27 @@ export const getProductionDetails = async (req, res) => {
       return res.status(404).json({ message: "Production not found" });
 
     const finishedGood = production.finished_good;
-    // Use Production Pending Quantity for raw material requirements calculation
-    const totalSalesQuantity = (production.production_quantity || 0) + (production.produced_quantity || 0);
-    const requiredQuantity = totalSalesQuantity - (finishedGood.units || 0);
+
+    // Get all sales orders with INPROCESS status for this finished good
+    const salesOrders = await Sales.find({
+      status: "INPROCESS",
+      "finished_goods.finished_good": finishedGood._id,
+    });
+
+    let totalSalesQuantity = 0;
+    for (const salesOrder of salesOrders) {
+      for (const salesItem of salesOrder.finished_goods) {
+        const itemFgId = salesItem.finished_good?._id || salesItem.finished_good;
+        if (itemFgId && itemFgId.toString() === finishedGood._id.toString()) {
+          const orderQuantity = salesItem.quantity || 0;
+          const invoicedQuantity = salesItem.invoiced_quantity || 0;
+          const remainingSalesQuantity = Math.max(0, orderQuantity - invoicedQuantity);
+          totalSalesQuantity += remainingSalesQuantity;
+        }
+      }
+    }
+
+    const requiredQuantity = Math.max(0, totalSalesQuantity - (finishedGood.units || 0));
 
     const classA = [],
       classB = [],
