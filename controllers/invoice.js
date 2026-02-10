@@ -330,7 +330,7 @@ export const getInvoicesByCustomer = async (req, res) => {
 
     // map into frontend response format
     const items = invoices.map((inv) => ({
-      id:inv._id,
+      id: inv._id,
       invoice_number: inv.invoice_number,
       sales_order_number: inv.sales_id ? `SO-${inv.sales_id.order_id}` : null,
       invoice_date: inv.invoice_date,
@@ -342,7 +342,7 @@ export const getInvoicesByCustomer = async (req, res) => {
   }
 };
 
-export const getInvoiceById = async (req, res) => { 
+export const getInvoiceById = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -378,7 +378,7 @@ export const getInvoiceById = async (req, res) => {
         address: invoice.customer_id?.address,
         state: invoice.customer_id?.state,
         pincode: invoice.customer_id?.pin_code,
-        gst:invoice.customer_id?.gst_no,
+        gst: invoice.customer_id?.gst_no,
       },
       sales_order: {
         id: invoice.sales_id?._id,
@@ -387,7 +387,7 @@ export const getInvoiceById = async (req, res) => {
       items: invoice.items.map((item) => {
         // Use stored snapshot if available, otherwise fall back to populated data for backward compatibility
         const fgData = item.finished_good_snapshot || item.finished_good;
-        
+
         return {
           sales_item: item.sales_item,
           finished_good: {
@@ -481,8 +481,8 @@ export const updateInvoiceStatus = async (req, res) => {
 
     const validStatuses = ["UNPROCESSED", "PROCESSED"];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        message: "Invalid status. Valid statuses are: UNPROCESSED, PROCESSED" 
+      return res.status(400).json({
+        message: "Invalid status. Valid statuses are: UNPROCESSED, PROCESSED"
       });
     }
 
@@ -533,8 +533,8 @@ export const deleteInvoice = async (req, res) => {
 
     // Check if invoice can be deleted (not processed)
     if (invoice.status === "PROCESSED") {
-      return res.status(400).json({ 
-        message: "Cannot delete processed invoices. Please contact support." 
+      return res.status(400).json({
+        message: "Cannot delete processed invoices. Please contact support."
       });
     }
 
@@ -582,7 +582,7 @@ const updateProductionQuantitiesOnInvoicing = async (items) => {
         // Reduce total production quantity by the invoiced amount
         // This represents that we no longer need to produce these items
         const newProductionQuantity = Math.max(0, production.production_quantity - quantity);
-        
+
         production.production_quantity = newProductionQuantity;
         production.updated_at = new Date();
         await production.save();
@@ -663,7 +663,7 @@ export const generateInvoicePDF = async (req, res) => {
       },
       items: invoice.items.map((item) => {
         const fgData = item.finished_good_snapshot || item.finished_good;
-        
+
         return {
           sales_item: item.sales_item,
           finished_good: {
@@ -920,7 +920,7 @@ const generateInvoiceHTML = (invoice) => {
                 <p><strong>Company Name:</strong> MAGNEQ TRANSMISSION PRIVATE LIMITED</p>
                 <p><strong>Address:</strong> PLOT NO.E-24/6, MIDC INDL.AREA,CHIKALTHANA, Chh. SAMBHAJINAGAR</p>
                 <p><strong>Phone:</strong> +91 98765 43210</p>
-                <p><strong>GST No:</strong> 27AABCU9603R1ZV</p>
+                <p><strong>GSTIN:</strong> 27AABCU9603R1ZV</p>
             </div>
 
             <!-- Customer Info -->
@@ -932,6 +932,7 @@ const generateInvoiceHTML = (invoice) => {
                 <p><strong>Address:</strong> ${invoice.customer?.address || 'N/A'}</p>
                 <p><strong>State:</strong> ${invoice.customer?.state || 'N/A'}</p>
                 <p><strong>Pincode:</strong> ${invoice.customer?.pincode || 'N/A'}</p>
+                <p><strong>GSTIN:</strong> ${invoice.customer?.gst || 'N/A'}</p>
             </div>
 
             <!-- Sales Order Info -->
