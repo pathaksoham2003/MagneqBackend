@@ -1,8 +1,9 @@
 import PaymentRecieval from "../models/PaymentRecieval.js";
 import Customer from "../models/Customers.js";
 import Ledger from "../models/Ledger.js";
+import logger from "../utils/logger.js";
 
-export const createPayment = async (req, res) => {
+export const createPayment = async (req, res, next) => {
   try {
     const { customerId, date_of_recieval, amount, description, transactionType, transactionId } = req.body;
 
@@ -28,15 +29,12 @@ export const createPayment = async (req, res) => {
       details: `${description || "Payment Received"} - ${transactionType}: ${transactionId}`,
     });
 
+    logger.info(`Payment recorded: ${amount} for customer ${customer.name} by ${req.user.user_name}`);
     res.status(201).json({
       message: "Payment recorded successfully & ledger updated",
       payment,
     });
   } catch (error) {
-    console.error("Error creating payment:", error);
-    res.status(500).json({
-      message: "Error creating payment",
-      error: error.message,
-    });
+    next(error);
   }
 };

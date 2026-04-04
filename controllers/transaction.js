@@ -3,11 +3,14 @@ import RawMaterials from "../models/RawMaterials.js";
 import FinishedGoods from "../models/FinishedGoods.js";
 import Ledger from "../models/Ledger.js";
 import mongoose from "mongoose";
+import FgHistory from "../models/FgHistory.js";
+import StockHistory from "../models/StockHistory.js";
+import logger from "../utils/logger.js";
 
 /**
  * Create a transaction record
  */
-export const createTransaction = async (req, res) => {
+export const createTransaction = async (req, res, next) => {
   try {
     const {
       model_name,
@@ -81,15 +84,14 @@ export const createTransaction = async (req, res) => {
       transaction,
     });
   } catch (error) {
-    console.error("Error creating transaction:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 /**
  * Update RawMaterial stock and create transaction
  */
-export const updateRawMaterialStock = async (req, res) => {
+export const updateRawMaterialStock = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { field_name, value, label, transaction_type } = req.body;
@@ -160,21 +162,40 @@ export const updateRawMaterialStock = async (req, res) => {
     });
     await transaction.save();
 
+    // Log Stock History for Admin Update
+    await StockHistory.create({
+      raw_material_id: material._id,
+      name: material.name,
+      class_type: material.class_type,
+      category_type: material.type,
+      change_type: "ADMIN_UPDATE",
+      quantity_changed: updatedValue - prevValue,
+      sub_type: field_name,
+      current_quantity_snapshot: material.quantity,
+      reference_text: label || "Admin Manual Update",
+      changed_by: req.user ? {
+        user_id: req.user.id,
+        name: req.user.name,
+        user_name: req.user.user_name,
+        email: req.user.email
+      } : undefined
+    });
+
+    logger.warn(`Manual raw material stock update: ${material.name} by ${req.user.user_name}. ${field_name}: ${prevValue} -> ${updatedValue}`);
     res.status(200).json({
       message: "RawMaterial stock updated and transaction recorded",
       material,
       transaction,
     });
   } catch (error) {
-    console.error("Error updating raw material stock:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 /**
  * Update FinishedGood units and create transaction
  */
-export const updateFinishedGoodUnits = async (req, res) => {
+export const updateFinishedGoodUnits = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { value, label, transaction_type } = req.body;
@@ -222,21 +243,38 @@ export const updateFinishedGoodUnits = async (req, res) => {
     });
     await transaction.save();
 
+    // Log FG History for Admin Update
+    await FgHistory.create({
+      finished_good_id: finishedGood._id,
+      model: finishedGood.model,
+      type: finishedGood.type,
+      change_type: "ADMIN_UPDATE",
+      quantity_changed: updatedValue - prevValue,
+      current_quantity: updatedValue,
+      reference_text: label || "Admin Manual Update",
+      changed_by: req.user ? {
+        user_id: req.user.id,
+        name: req.user.name,
+        user_name: req.user.user_name,
+        email: req.user.email
+      } : undefined
+    });
+
+    logger.warn(`Manual finished good units update: ${finishedGood.model} by ${req.user.user_name}. units: ${prevValue} -> ${updatedValue}`);
     res.status(200).json({
       message: "FinishedGood units updated and transaction recorded",
       finishedGood,
       transaction,
     });
   } catch (error) {
-    console.error("Error updating finished good units:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 /**
  * Get all transactions with optional filters
  */
-export const getTransactions = async (req, res) => {
+export const getTransactions = async (req, res, next) => {
   try {
     const { model_name, reference_id, transaction_type, startDate, endDate, limit = 100, skip = 0 } = req.query;
 
@@ -289,15 +327,14 @@ export const getTransactions = async (req, res) => {
       skip: parseInt(skip),
     });
   } catch (error) {
-    console.error("Error fetching transactions:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 /**
  * Get transaction by ID
  */
-export const getTransactionById = async (req, res) => {
+export const getTransactionById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -330,7 +367,6 @@ export const getTransactionById = async (req, res) => {
 
     res.status(200).json(transaction);
   } catch (error) {
-    console.error("Error fetching transaction:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };

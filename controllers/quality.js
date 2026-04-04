@@ -1,7 +1,7 @@
-import FinishedGoods from "../models/FinishedGoods.js";
 import Quality from "../models/Quality.js";
+import logger from "../utils/logger.js";
 
-export const createQuality = async (req, res) => {
+export const createQuality = async (req, res, next) => {
   try {
     const {issue_type, items = [], description} = req.body;
     if(!description || !issue_type ||!items){
@@ -46,16 +46,14 @@ export const createQuality = async (req, res) => {
       action_taken: false,
     });
 
+    logger.info(`Quality issue created types: ${issue_type} by ${req.user.user_name}`);
     return res.status(201).json(issueDoc);
   } catch (err) {
-    console.error("Error in createQuality:", err);
-    res
-      .status(500)
-      .json({error: "Failed to create quality issue", details: err.message});
+    next(err);
   }
 };
 
-export const getAllQualities = async (req, res) => {
+export const getAllQualities = async (req, res, next) => {
   try {
     const {page = 1, limit = 10, search = "", issue_type = ""} = req.query;
 
@@ -105,12 +103,11 @@ export const getAllQualities = async (req, res) => {
 
     res.json(response);
   } catch (err) {
-    console.error("Error fetching quality issues:", err);
-    res.status(500).json({error: "Failed to fetch quality issues"});
+    next(err);
   }
 };
 
-export const getSpecificQualityIssue = async (req, res) => {
+export const getSpecificQualityIssue = async (req, res, next) => {
   try {
     const {id} = req.params;
 
@@ -124,12 +121,11 @@ export const getSpecificQualityIssue = async (req, res) => {
 
     res.json(qualityIssue);
   } catch (err) {
-    console.error("Error in getSpecificQualityIssue:", err);
-    res.status(500).json({error: "Failed to fetch quality issue"});
+    next(err);
   }
 };
 
-export const updateQuality = async (req, res) => {
+export const updateQuality = async (req, res, next) => {
   try {
     const {id} = req.params;
     const updated = await Quality.findByIdAndUpdate(id, req.body, {
@@ -141,13 +137,14 @@ export const updateQuality = async (req, res) => {
       return res.status(404).json({error: "Quality issue not found"});
     }
 
+    logger.info(`Quality issue updated: ${id} by ${req.user.user_name}`);
     res.json(updated);
   } catch (err) {
-    res.status(500).json({error: "Failed to update quality issue"});
+    next(err);
   }
 };
 
-export const deleteQuality = async (req, res) => {
+export const deleteQuality = async (req, res, next) => {
   try {
     const {id} = req.params;
     const deleted = await Quality.findByIdAndDelete(id);
@@ -156,8 +153,9 @@ export const deleteQuality = async (req, res) => {
       return res.status(404).json({error: "Quality issue not found"});
     }
 
+    logger.warn(`Quality issue deleted: ${id} by ${req.user.user_name}`);
     res.json({message: "Quality issue deleted successfully"});
   } catch (err) {
-    res.status(500).json({error: "Failed to delete quality issue"});
+    next(err);
   }
 };

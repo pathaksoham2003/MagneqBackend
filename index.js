@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "./utils/db.js";
 import cors from "cors";
 import dotenv from "dotenv";
+import logger, { httpLogger } from "./utils/logger.js";
 
 import "./models/User.js";
 import "./models/RawMaterials.js";
@@ -32,6 +33,7 @@ import exportRoutes from "./routes/export.js";
 import deliveryRoutes from "./routes/delivery.js";
 import ledgerRoutes from "./routes/ledger.js";
 import transactionRoutes from "./routes/transaction.js";
+import historyRoutes from "./routes/history.js";
 
 dotenv.config();
 
@@ -40,6 +42,19 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+
+// --- Logging Middleware ---
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const userStr = req.user ? ` [User: ${req.user.name} (${req.user.email})]` : "";
+    httpLogger.info(
+      `${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms${userStr}`
+    );
+  });
+  next();
+});
 
 app.get("/", (req, res) => res.send("ERP Server Running..."));
 
@@ -59,11 +74,26 @@ app.use("/api/notification",notificationRoutes);
 app.use("/api/payment",paymentRoutes);
 app.use("/api/export",exportRoutes);
 app.use("/api/transaction", transactionRoutes);
+app.use("/api/history", historyRoutes);
 
 app.use("/api/assets", express.static("assets"));
 
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
+// --- Global Error Handler ---
+app.use((err, req, res, next) => {
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    url: req.originalUrl,
+    method: req.method,
+    user: req.user ? { id: req.user.id, email: req.user.email } : "Anonymous"
+  });
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === "production" ? "Internal Server Error" : err.message
+  });
+});
+
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server started on port ${PORT}`);
 });

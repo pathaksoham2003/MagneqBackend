@@ -2,6 +2,7 @@ import FinishedGoods from "../models/FinishedGoods.js";
 import Sales from "../models/Sales.js";
 import mongoose from "mongoose";
 import {getFgModelNumber} from "../utils/helper.js";
+import logger from "../utils/logger.js";
 
 // Helper function to check if finished good is used in pending sales orders
 const checkPendingSalesOrders = async (finishedGoodId) => {
@@ -28,12 +29,11 @@ const checkPendingSalesOrders = async (finishedGoodId) => {
 
     return { hasPending: false, salesOrders: [] };
   } catch (error) {
-    console.error("Error checking pending sales orders:", error);
     throw error;
   }
 };
 
-export const createFinishedGood = async (req, res) => {
+export const createFinishedGood = async (req, res, next) => {
   try {
     const {
       model,
@@ -89,26 +89,26 @@ export const createFinishedGood = async (req, res) => {
 
     const savedFG = await newFG.save();
 
+    logger.info(`Finished Good created: ${model_number} (ID: ${savedFG._id})`);
     return res.status(201).json(savedFG);
   } catch (error) {
-    console.error("Error creating finished good:", error);
-    return res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 
-export const getAllFinishedGoods = async (req, res) => {
+export const getAllFinishedGoods = async (req, res, next) => {
   try {
     const finishedGoods = await FinishedGoods.find().populate(
       "raw_materials.raw_material_id"
     );
     res.status(200).json(finishedGoods);
   } catch (error) {
-    res.status(500).json({error: error.message});
+    next(error);
   }
 };
 
-export const getFinishedGoodById = async (req, res) => {
+export const getFinishedGoodById = async (req, res, next) => {
   try {
     const fg = await FinishedGoods.findById(req.params.id).populate(
       "raw_materials.raw_material_id"
@@ -165,13 +165,12 @@ export const getFinishedGoodById = async (req, res) => {
       gst_slab: fg.gst_slab ? parseFloat(fg.gst_slab.toString()) : 0,
     });
   } catch (error) {
-    console.error("Error in getFinishedGoodById:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 
-export const updateFinishedGood = async (req, res) => {
+export const updateFinishedGood = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { classA = [], classB = [], classC = [] } = req.body;
@@ -208,18 +207,14 @@ export const updateFinishedGood = async (req, res) => {
       { new: true }
     ).populate("raw_materials.raw_material_id");
 
-    if (!updatedFG) {
-      return res.status(404).json({ message: "Finished good not found" });
-    }
-
+    logger.info(`Finished Good raw materials updated: ${id}`);
     res.status(200).json(updatedFG);
   } catch (error) {
-    console.error("Error updating finished good:", error);
-    res.status(400).json({ error: error.message });
+    next(error);
   }
 };
 
-export const updateFinishedGoodDetails = async (req, res) => {
+export const updateFinishedGoodDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
@@ -289,30 +284,28 @@ export const updateFinishedGoodDetails = async (req, res) => {
       { new: true }
     ).populate("raw_materials.raw_material_id");
 
+    logger.info(`Finished Good details updated: ${id} (${updatedData.model})`);
     res.status(200).json({
       message: "Finished good updated successfully",
       finishedGood: updatedFG
     });
   } catch (error) {
-    console.error("Error updating finished good details:", error);
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
 
-export const deleteFinishedGood = async (req, res) => {
+export const deleteFinishedGood = async (req, res, next) => {
   try {
     const deletedFG = await FinishedGoods.findByIdAndDelete(req.params.id);
-    if (!deletedFG) {
-      return res.status(404).json({message: "Finished good not found"});
-    }
+    logger.info(`Finished Good deleted: ${req.params.id}`);
     res.status(200).json({message: "Finished good deleted successfully"});
   } catch (error) {
-    res.status(500).json({error: error.message});
+    next(error);
   }
 };
 
-export const getModelConfig = async (req, res) => {
+export const getModelConfig = async (req, res, next) => {
   try {
     const finishedGoods = await FinishedGoods.aggregate([
       {
@@ -361,7 +354,6 @@ export const getModelConfig = async (req, res) => {
 
     res.json(config);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({error: "Failed to fetch model config"});
+    next(err);
   }
 };

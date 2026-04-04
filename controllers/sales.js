@@ -8,8 +8,9 @@ import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
 import { calculateTaxes } from "../utils/taxCalculator.js";
 import Customers from "../models/Customers.js";
+import logger from "../utils/logger.js";
 
-export const getTopStats = async (req, res) => {
+export const getTopStats = async (req, res, next) => {
   try {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -180,12 +181,11 @@ export const getTopStats = async (req, res) => {
       ),
     });
   } catch (err) {
-    console.error("getTopStats error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const createSale = async (req, res) => {
+export const createSale = async (req, res, next) => {
   try {
     let saleData = {
       ...req.body,
@@ -233,14 +233,14 @@ export const createSale = async (req, res) => {
     const sale = new Sales(saleData);
     const savedSale = await sale.save();
 
+    logger.info(`Sales order created: SO-${savedSale.order_id} for ${savedSale.customer_name}`);
     res.status(201).json({ sale: savedSale });
   } catch (err) {
-    console.error("Error in createSale:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 // export const
-export const approveSale = async (req, res) => {
+export const approveSale = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { finished_goods } = req.body;
@@ -327,18 +327,19 @@ export const approveSale = async (req, res) => {
       productionRecords.push(production);
     }
     
+    logger.info(`Sales order approved: SO-${sale.order_id}. ${productionRecords.length} production orders updated/created.`);
     res.status(200).json({ 
       message: "Sale approved and production orders created", 
       sale,
       productions: productionRecords
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
 // Add a rejectSale endpoint
-export const rejectSale = async (req, res) => {
+export const rejectSale = async (req, res, next) => {
   try {
     const { id } = req.params;
     const sale = await Sales.findById(id);
@@ -352,13 +353,14 @@ export const rejectSale = async (req, res) => {
     sale.status = "CANCELLED";
     sale.updated_at = new Date();
     await sale.save();
+    logger.warn(`Sales order rejected: SO-${sale.order_id} by ${req.user.user_name}`);
     res.status(200).json({ message: "Sale rejected", sale });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getAllSales = async (req, res) => {
+export const getAllSales = async (req, res, next) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
@@ -431,11 +433,11 @@ export const getAllSales = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getSaleById = async (req, res) => {
+export const getSaleById = async (req, res, next) => {
   try {
     const sale = await Sales.findById(req.params.id)
       .populate("finished_goods.finished_good")
@@ -538,12 +540,11 @@ export const getSaleById = async (req, res) => {
       itemLevelData: { header, items: finishedGoods },
     });
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const updateSaleStatus = async (req, res) => {
+export const updateSaleStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
     if (!status) {
@@ -565,13 +566,14 @@ export const updateSaleStatus = async (req, res) => {
       await reduceProductionQuantitiesOnSalesDeletion(sale);
     }
     
+    logger.info(`Sales order status updated: SO-${sale.order_id} (${oldStatus} -> ${status})`);
     res.status(200).json({ message: "Status updated" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 // NEW: Update sales order function (UN_APPROVED orders for all roles, approved orders for ADMIN only)
-export const updateSalesOrder = async (req, res) => {
+export const updateSalesOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userRole = req.user?.role;
@@ -750,17 +752,17 @@ export const updateSalesOrder = async (req, res) => {
       await updateProductionQuantitiesForSalesOrder(sale, updatedSale);
     }
 
+    logger.info(`Sales order updated: SO-${updatedSale.order_id} by ${req.user.user_name}`);
     res.status(200).json({ 
       message: "Sales order updated successfully", 
       sale: updatedSale 
     });
   } catch (err) {
-    console.error("Error in updateSalesOrder:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const saleAmountRecieved = async (req, res) => {
+export const saleAmountRecieved = async (req, res, next) => {
   try {
     const { recieved_amt } = req.body;
     if (!recieved_amt)
@@ -783,13 +785,14 @@ export const saleAmountRecieved = async (req, res) => {
 
     sale.recieved_amount = updatedAmount;
     await sale.save();
+    logger.info(`Payment received for SO-${sale.order_id}: ${recieved_amt}. New total: ${updatedAmount}`);
     return res.status(200).json({ message: "Amount updated", sale });
   } catch (err) {
-    return res.status(500).json({ message: "Internal server error" });
+    next(err);
   }
 };
 
-export const getSalesOfCustomer = async (req, res) => {
+export const getSalesOfCustomer = async (req, res, next) => {
   try {
     const { customerId } = req.params;
 
@@ -816,11 +819,10 @@ export const getSalesOfCustomer = async (req, res) => {
 
     res.status(200).json(formatted);
   } catch (err) {
-    console.error("Error fetching sales orders:", err);
-    res.status(500).json({ message: "Server error" });
+    next(err);
   }
 };
-export const deleteSale = async (req, res) => {
+export const deleteSale = async (req, res, next) => {
   try {
     const { id } = req.params;
     const userRole = req.user?.role;
@@ -850,9 +852,10 @@ export const deleteSale = async (req, res) => {
     }
 
     const deleted = await Sales.findByIdAndDelete(id);
-    res.status(200).json({ message: "Sale deleted successfully" });
+    logger.warn(`Sales order deleted: SO-${sale.order_id} by ${req.user.user_name}`);
+    res.status(200).json({ message: "Sale deleted and production updated" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
@@ -880,8 +883,7 @@ export const getFgBySalesId = async (req, res) => {
 
     return res.status(200).json(formattedFgs);
   } catch (error) {
-    console.error("Error fetching FG by salesId:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
@@ -920,13 +922,12 @@ const updateProductionQuantitiesForSalesOrder = async (originalSale, updatedSale
           production.updated_at = new Date();
           await production.save();
 
-          console.log(`Updated production for FG ${fgId}: production_quantity changed by ${quantityChange}`);
+          logger.info(`Updated production for FG ${fgId}: production_quantity changed by ${quantityChange}`);
         }
       }
     }
   } catch (error) {
-    console.error("Error updating production quantities:", error);
-    // Don't throw error here as sales order update should still succeed
+    logger.error("Error updating production quantities:", error);
   }
 };
 
@@ -945,11 +946,10 @@ const reduceProductionQuantitiesOnSalesDeletion = async (sale) => {
         production.updated_at = new Date();
         await production.save();
 
-        console.log(`Reduced production for FG ${item.finished_good}: production_quantity reduced by ${item.quantity}`);
+        logger.info(`Updated production for FG ${item.finished_good}: reduced quantity by ${item.quantity}`);
       }
     }
   } catch (error) {
-    console.error("Error reducing production quantities on sales deletion:", error);
-    // Don't throw error here as sales order deletion should still succeed
+    logger.error("Error reducing production quantities on sales deletion:", error);
   }
 };

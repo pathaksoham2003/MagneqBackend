@@ -3,6 +3,7 @@ import PaymentRecieval from "../models/PaymentRecieval.js";
 import Customer from "../models/Customers.js";
 import Ledger from "../models/Ledger.js";
 import Invoice from "../models/Invoice.js";
+import logger from "../utils/logger.js";
 
 // ========================================
 // HELPER FUNCTIONS
@@ -193,7 +194,7 @@ const sendExcelFile = async (res, data, filename, worksheetName) => {
  * Creates a structured sales register export matching the Excel format
  */
 const exportInvoices = async (customerId, customer, startDate, endDate) => {
-  console.log("📋 Exporting invoices (sales register format)...");
+  logger.info(`Exporting invoices (sales register format) for ${customer.name}...`);
 
   // Inclusive date filter
   const dateFilter = {};
@@ -440,7 +441,7 @@ const formatReceiptDate = (date) => {
  * Creates a structured receipt register export matching the CSV format
  */
 const exportPayments = async (customerId, customer, startDate, endDate) => {
-  console.log("💰 Exporting payments (receipt register format)...");
+  logger.info(`Exporting payments (receipt register format) for ${customer.name}...`);
 
   // 🗓️ Make date range inclusive
   const dateFilter = {};
@@ -554,7 +555,7 @@ const exportPayments = async (customerId, customer, startDate, endDate) => {
  * Includes: Date Range → Customer Details → Ledger Entries → Opening/Closing Balance
  */
 export const exportLedger = async (customerId, customer, startDate, endDate) => {
-  console.log("📒 Exporting ledger from", startDate, "to", endDate);
+  logger.info(`Exporting ledger for ${customer.name} from ${startDate} to ${endDate}`);
 
   // 🗓️ Make date range inclusive
   const start = new Date(`${startDate}T00:00:00.000Z`);
@@ -679,7 +680,7 @@ function formatDisplayDate(date) {
 // MAIN EXPORT CONTROLLER
 // ========================================
 
-export const createExport = async (req, res) => {
+export const createExport = async (req, res, next) => {
   try {
     console.log("🟢 [EXPORT] Request received:", req.body);
 
@@ -735,12 +736,8 @@ export const createExport = async (req, res) => {
     // Generate and send Excel file
     await sendExcelFile(res, data, filename, worksheetName);
 
-    console.log("✅ Export completed successfully for:", customer.name);
+    logger.info(`Export completed successfully: ${exportType} for ${customer.name}`);
   } catch (error) {
-    console.error("❌ EXPORT ERROR:", error);
-    res.status(500).json({
-      message: "Export failed",
-      error: error.message,
-    });
+    next(error);
   }
 };

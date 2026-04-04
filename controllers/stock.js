@@ -1,27 +1,29 @@
 import Stock from '../models/Stock.js';
+import logger from '../utils/logger.js';
 
 /** Create Stock */
-export const createStock = async (req, res) => {
+export const createStock = async (req, res, next) => {
   try {
     const stock = await Stock.create(req.body);
+    logger.info(`Stock created by ${req.user.user_name}`);
     res.status(201).json(stock);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to create stock' });
+    next(err);
   }
 };
 
 /** Get All Stocks */
-export const getAllStocks = async (req, res) => {
+export const getAllStocks = async (req, res, next) => {
   try {
     const stocks = await Stock.find().populate('raw_materials');
     res.json(stocks);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch stocks' });
+    next(err);
   }
 };
 
 /** Update Stock by ID */
-export const updateStock = async (req, res) => {
+export const updateStock = async (req, res, next) => {
   try {
     const { id } = req.params;
     const updatedStock = await Stock.findByIdAndUpdate(id, req.body, {
@@ -33,14 +35,15 @@ export const updateStock = async (req, res) => {
       return res.status(404).json({ error: 'Stock not found' });
     }
 
+    logger.info(`Stock updated: ${id} by ${req.user.user_name}`);
     res.json(updatedStock);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update stock' });
+    next(err);
   }
 };
 
 /** Delete Stock by ID */
-export const deleteStock = async (req, res) => {
+export const deleteStock = async (req, res, next) => {
   try {
     const { id } = req.params;
     const deleted = await Stock.findByIdAndDelete(id);
@@ -49,8 +52,9 @@ export const deleteStock = async (req, res) => {
       return res.status(404).json({ error: 'Stock not found' });
     }
 
+    logger.warn(`Stock deleted: ${id} by ${req.user.user_name}`);
     res.json({ message: 'Stock deleted successfully' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete stock' });
+    next(err);
   }
 };

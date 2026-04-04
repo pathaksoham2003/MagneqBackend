@@ -3,8 +3,12 @@ import FinishedGoods from "../models/FinishedGoods.js";
 import RawMaterials from "../models/RawMaterials.js";
 import Sales from "../models/Sales.js";
 import { getFgModelNumber, getModelNumber } from "../utils/helper.js";
+import FgHistory from "../models/FgHistory.js";
+import ProductionHistory from "../models/ProductionHistory.js";
+import StockHistory from "../models/StockHistory.js";
+import logger from "../utils/logger.js";
 
-export const createProductionOrder = async (req, res) => {
+export const createProductionOrder = async (req, res, next) => {
   try {
     let productionData = {
       ...req.body,
@@ -34,6 +38,7 @@ export const createProductionOrder = async (req, res) => {
       await production.save();
       productionRecords.push(production);
     }
+    logger.info(`Production order created with ${productionRecords.length} items`);
     res
       .status(200)
       .json({
@@ -41,11 +46,11 @@ export const createProductionOrder = async (req, res) => {
         productions: productionRecords,
       });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getPendingProductionOrders = async (req, res) => {
+export const getPendingProductionOrders = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -136,7 +141,7 @@ export const getPendingProductionOrders = async (req, res) => {
   }
 };
 
-export const getPendingProductionOrdersFromSales = async (req, res) => {
+export const getPendingProductionOrdersFromSales = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -262,7 +267,7 @@ export const getPendingProductionOrdersFromSales = async (req, res) => {
   }
 };
 
-export const getProductionDetails = async (req, res) => {
+export const getProductionDetails = async (req, res, next) => {
   try {
     const production = await Production.findOne({
       finished_good: req.params.id
@@ -344,11 +349,11 @@ export const getProductionDetails = async (req, res) => {
       class_c: classC,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const startProduction = async (req, res) => {
+export const startProduction = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -403,17 +408,17 @@ export const startProduction = async (req, res) => {
     production.updated_at = new Date();
     await production.save();
 
+    logger.info(`Production started: ${id}`);
     res.json({
       message: "Production started, raw materials updated successfully",
       production,
     });
   } catch (err) {
-    console.error("Start Production Error:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const makeReady = async (req, res) => {
+export const makeReady = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -430,12 +435,12 @@ export const makeReady = async (req, res) => {
     production.updated_at = new Date();
     await production.save();
 
+    logger.info(`Production marked as ready/completed: ${id}`);
     return res.status(200).json({
       message: "Production marked as COMPLETED.",
     });
   } catch (err) {
-    console.error("Error in makeReady:", err);
-    return res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
@@ -484,9 +489,10 @@ const ensureSingleProductionPerFinishedGood = async (finishedGoodId) => {
 };
 
 // Add daily production directly to finished goods (allows excess production)
-export const addDailyProduction = async (req, res) => {
+export const addDailyProduction = async (req, res, next) => {
   try {
-    const { finished_goods } = req.body;
+    const { finished_goods, date } = req.body;
+    const historyDate = date ? new Date(date) : new Date();
 
     if (!finished_goods || !Array.isArray(finished_goods) || finished_goods.length === 0) {
       return res.status(400).json({
@@ -599,12 +605,58 @@ export const addDailyProduction = async (req, res) => {
         });
       }
 
+      // Create Production History first to get its ID for linkage
+      const productionHistory = await ProductionHistory.create({
+        finished_good_id: finishedGood._id,
+        model: finishedGood.model,
+        type: finishedGood.type,
+        quantity_produced: quantity,
+        reference_text: `Daily Production Entry`,
+        changed_by: req.user ? {
+          user_id: req.user.id,
+          name: req.user.name,
+          user_name: req.user.user_name,
+          email: req.user.email
+        } : undefined,
+        date: historyDate
+      });
+
+      const currentRawMaterialsUsed = [];
+
       // Deduct raw materials
       for (const deduction of rawMaterialDeductions) {
         deduction.material.quantity.processed = deduction.availableQty - deduction.requiredQty;
         deduction.material.updated_at = new Date();
         deduction.material.markModified("quantity");
         await deduction.material.save();
+
+        currentRawMaterialsUsed.push({
+          raw_material_id: deduction.material._id,
+          name: deduction.material.name,
+          class_type: deduction.material.class_type,
+          quantity_consumed: deduction.requiredQty
+        });
+        
+        // Log Stock History
+        await StockHistory.create({
+          raw_material_id: deduction.material._id,
+          name: deduction.material.name,
+          class_type: deduction.material.class_type,
+          category_type: deduction.material.type,
+          change_type: "CONSUMED",
+          quantity_changed: deduction.requiredQty,
+          sub_type: "processed",
+          current_quantity_snapshot: deduction.material.quantity,
+          reference_text: `Production of ${finishedGood.model} - ${finishedGood.type} (${quantity} units)`,
+          changed_by: req.user ? {
+            user_id: req.user.id,
+            name: req.user.name,
+            user_name: req.user.user_name,
+            email: req.user.email
+          } : undefined,
+          date: historyDate,
+          production_history_id: productionHistory._id
+        });
       }
 
       // Find or create production record for this finished good
@@ -620,7 +672,7 @@ export const addDailyProduction = async (req, res) => {
           production_quantity: 0,
           produced_quantity: quantity,
           status: "COMPLETED",
-          created_at: new Date(),
+          created_at: historyDate,
           updated_at: new Date(),
         });
         await production.save();
@@ -638,6 +690,28 @@ export const addDailyProduction = async (req, res) => {
       finishedGood.units = currentUnits + quantity;
       finishedGood.updated_at = new Date();
       await finishedGood.save();
+      
+      // Log Fg History
+      await FgHistory.create({
+        finished_good_id: finishedGood._id,
+        model: finishedGood.model,
+        type: finishedGood.type,
+        change_type: "PRODUCTION_ADDITION",
+        quantity_changed: quantity,
+        current_quantity: finishedGood.units,
+        reference_text: `Daily Production Added`,
+        changed_by: req.user ? {
+          user_id: req.user.id,
+          name: req.user.name,
+          user_name: req.user.user_name,
+          email: req.user.email
+        } : undefined,
+        date: historyDate
+      });
+      
+      // Finalize Production History with raw materials used
+      productionHistory.raw_materials_used = currentRawMaterialsUsed;
+      await productionHistory.save();
 
       results.push({
         finished_good: {
@@ -679,6 +753,7 @@ export const addDailyProduction = async (req, res) => {
     // So we'll use 201 (Created) but make errors very clear
     const statusCode = errors.length > 0 ? 201 : 201; // Keep 201 but make errors prominent
 
+    logger.info(`Daily production added for ${results.length} items`);
     res.status(statusCode).json({
       message,
       success: results.length,
@@ -687,13 +762,12 @@ export const addDailyProduction = async (req, res) => {
       errors: errors.length > 0 ? errors : []
     });
   } catch (err) {
-    console.error("Error in addDailyProduction:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
 // Clean up duplicate production records (admin function)
-export const cleanupDuplicateProductions = async (req, res) => {
+export const cleanupDuplicateProductions = async (req, res, next) => {
   try {
     // Get all finished goods
     const finishedGoods = await FinishedGoods.find({});
@@ -739,13 +813,13 @@ export const cleanupDuplicateProductions = async (req, res) => {
       }
     }
 
+    logger.info(`Duplicate productions cleaned up: ${cleanedCount}`);
     res.status(200).json({
       message: `Cleaned up ${cleanedCount} duplicate production records`,
       cleanedCount
     });
   } catch (err) {
-    console.error("Error in cleanupDuplicateProductions:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 

@@ -9,9 +9,11 @@ import Ledger from "../models/Ledger.js";
 import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
 import puppeteer from "puppeteer";
 import { getLastRunningBalance } from "../utils/ledgerUtils.js";
+import FgHistory from "../models/FgHistory.js";
+import logger from "../utils/logger.js";
 
 
-export const createInvoice = async (req, res) => {
+export const createInvoice = async (req, res, next) => {
   try {
     const { sales_id, customer_id, items } = req.body;
 
@@ -121,11 +123,29 @@ export const createInvoice = async (req, res) => {
 
     // 6. Reduce stock quantities for invoiced finished goods
     for (const { fg_id, quantity } of items) {
-      await FinishedGoods.findByIdAndUpdate(
+      const updatedFg = await FinishedGoods.findByIdAndUpdate(
         fg_id,
         { $inc: { units: -quantity } }, // Reduce stock by invoiced quantity
         { new: true }
       );
+      
+      if (updatedFg) {
+        await FgHistory.create({
+          finished_good_id: updatedFg._id,
+          model: updatedFg.model,
+          type: updatedFg.type,
+          change_type: "INVOICE_REDUCTION",
+          quantity_changed: quantity,
+          current_quantity: updatedFg.units,
+          reference_text: `Invoice #${invoice.invoice_number}`,
+          changed_by: req.user ? {
+            user_id: req.user.id,
+            name: req.user.name,
+            user_name: req.user.user_name,
+            email: req.user.email
+          } : undefined
+        });
+      }
     }
 
     // 6.1. Update production quantities - reduce by invoiced amounts
@@ -157,18 +177,18 @@ export const createInvoice = async (req, res) => {
       await sales.save();
     }
 
+    logger.info(`Invoice created: ${invoice.invoice_number} for customer ${customer.name}`);
     return res.status(201).json({
       message: "Invoice created, stock updated & ledger updated",
       invoice,
       ledgerEntry,
     });
   } catch (err) {
-    console.error("Error creating invoice:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+    next(err);
   }
 };
 
-export const getAllInvoices = async (req, res) => {
+export const getAllInvoices = async (req, res, next) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
@@ -287,11 +307,11 @@ export const getAllInvoices = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getInvoicesBySalesId = async (req, res) => {
+export const getInvoicesBySalesId = async (req, res, next) => {
   try {
     const { salesId } = req.params;
     const invoices = await Invoice.find({ sales_id: salesId })
@@ -304,12 +324,11 @@ export const getInvoicesBySalesId = async (req, res) => {
 
     return res.status(200).json(invoices);
   } catch (err) {
-    console.error("Error fetching invoices by Sales ID:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+    next(err);
   }
 };
 
-export const getInvoicesByCustomer = async (req, res) => {
+export const getInvoicesByCustomer = async (req, res, next) => {
   try {
     const { customerId } = req.params;
 
@@ -338,11 +357,11 @@ export const getInvoicesByCustomer = async (req, res) => {
 
     res.status(200).json(items);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getInvoiceById = async (req, res) => {
+export const getInvoiceById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -417,12 +436,11 @@ export const getInvoiceById = async (req, res) => {
 
     res.json(formattedInvoice);
   } catch (error) {
-    console.error("Error fetching invoice:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-export const updateTransportDetails = async (req, res) => {
+export const updateTransportDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { transport_details, lr_number } = req.body;
@@ -449,8 +467,7 @@ export const updateTransportDetails = async (req, res) => {
       invoice.status = "PROCESSED";
     }
 
-    await invoice.save();
-
+    logger.info(`Transport details updated for invoice: ${invoice.invoice_number}`);
     res.status(200).json({
       message: "Transport details updated successfully",
       invoice: {
@@ -461,12 +478,11 @@ export const updateTransportDetails = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating transport details:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-export const updateInvoiceStatus = async (req, res) => {
+export const updateInvoiceStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -499,6 +515,7 @@ export const updateInvoiceStatus = async (req, res) => {
     invoice.status = status;
     await invoice.save();
 
+    logger.info(`Invoice status updated: ${invoice.invoice_number} -> ${status}`);
     res.status(200).json({
       message: "Invoice status updated successfully",
       invoice: {
@@ -508,12 +525,11 @@ export const updateInvoiceStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating invoice status:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-export const deleteInvoice = async (req, res) => {
+export const deleteInvoice = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -556,6 +572,7 @@ export const deleteInvoice = async (req, res) => {
     // Delete the invoice
     await Invoice.findByIdAndDelete(id);
 
+    logger.warn(`Invoice deleted: ${invoice.invoice_number} by ${req.user.user_name}`);
     res.status(200).json({
       message: "Invoice deleted successfully and stock restored",
       deletedInvoice: {
@@ -564,8 +581,7 @@ export const deleteInvoice = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error deleting invoice:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
@@ -585,13 +601,11 @@ const updateProductionQuantitiesOnInvoicing = async (items) => {
 
         production.production_quantity = newProductionQuantity;
         production.updated_at = new Date();
-        await production.save();
-
-        console.log(`Updated production for FG ${fg_id}: reduced production_quantity by ${quantity}`);
+        logger.info(`Updated production for FG ${fg_id}: reduced production_quantity by ${quantity}`);
       }
     }
   } catch (error) {
-    console.error("Error updating production quantities on invoicing:", error);
+    logger.error("Error updating production quantities on invoicing:", error);
     // Don't throw error here as invoice creation should still succeed
   }
 };
@@ -609,19 +623,17 @@ const restoreProductionQuantitiesOnInvoiceDeletion = async (items) => {
         // Restore production_quantity by the invoiced amount
         production.production_quantity += item.invoiced_quantity;
         production.updated_at = new Date();
-        await production.save();
-
-        console.log(`Restored production for FG ${item.finished_good}: increased production_quantity by ${item.invoiced_quantity}`);
+        logger.info(`Restored production for FG ${item.finished_good}: increased production_quantity by ${item.invoiced_quantity}`);
       }
     }
   } catch (error) {
-    console.error("Error restoring production quantities on invoice deletion:", error);
+    logger.error("Error restoring production quantities on invoice deletion:", error);
     // Don't throw error here as invoice deletion should still succeed
   }
 };
 
 // Generate PDF invoice
-export const generateInvoicePDF = async (req, res) => {
+export const generateInvoicePDF = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -726,8 +738,7 @@ export const generateInvoicePDF = async (req, res) => {
     res.send(pdfBuffer);
 
   } catch (error) {
-    console.error("Error generating PDF:", error);
-    res.status(500).json({ message: "Error generating PDF", error: error.message });
+    next(error);
   }
 };
 

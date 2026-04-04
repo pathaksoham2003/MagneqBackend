@@ -1,13 +1,14 @@
 import DeliveryDetails from "../models/DeliveryDetails.js";
 import Invoice from "../models/Invoice.js";
 import mongoose from "mongoose";
+import logger from "../utils/logger.js";
 
 const getFgModelNumber = (fg) => {
   if (!fg) return "";
   return `${fg.model || ""}-${fg.type || ""}-${fg.ratio || ""}-${fg.power || ""}`;
 };
 
-export const createDelivery = async (req, res) => {
+export const createDelivery = async (req, res, next) => {
   try {
     const { invoices, from, to, description } = req.body;
 
@@ -37,18 +38,18 @@ export const createDelivery = async (req, res) => {
       dispatched_by: req.user?._id,
     });
 
+    logger.info(`Delivery created: ${delivery._id} by ${req.user.user_name} for ${invoices.length} invoices`);
     return res.status(201).json({
       message: "Delivery created successfully",
       delivery,
     });
   } catch (err) {
-    console.error("Error creating delivery:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+    next(err);
   }
 };
 
 // UPDATE Delivery (LR number, transport details, description)
-export const updateDelivery = async (req, res) => {
+export const updateDelivery = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { lr_number, transport_details, description } = req.body;
@@ -61,15 +62,15 @@ export const updateDelivery = async (req, res) => {
 
     if (!delivery) return res.status(404).json({ message: "Delivery not found" });
 
+    logger.info(`Delivery updated: ${id} by ${req.user.user_name}`);
     return res.status(200).json(delivery);
   } catch (err) {
-    console.error("Error updating delivery:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+    next(err);
   }
 };
 
 // GET All Deliveries (same format as invoices/sales)
-export const getAllDeliveries = async (req, res) => {
+export const getAllDeliveries = async (req, res, next) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
@@ -129,12 +130,11 @@ export const getAllDeliveries = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    console.error("Error fetching deliveries:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getDeliveryById = async (req, res) => {
+export const getDeliveryById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -150,7 +150,6 @@ export const getDeliveryById = async (req, res) => {
 
     return res.status(200).json(delivery);
   } catch (err) {
-    console.error("Error fetching delivery:", err);
-    return res.status(500).json({ message: "Internal Server Error" });
+    next(err);
   }
 };

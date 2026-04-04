@@ -9,8 +9,9 @@ import mongoose from "mongoose";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 import PaymentRecieval from "../models/PaymentRecieval.js";
 import { PAYMENT_TERMS } from "../constants/paymentTerms.js";
+import logger from "../utils/logger.js";
 
-export const getTopStats = async (req, res) => {
+export const getTopStats = async (req, res, next) => {
   try {
     // Use IST timezone for consistent date calculations
     const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
@@ -205,12 +206,11 @@ export const getTopStats = async (req, res) => {
       customers_with_overdue: paymentData.customersWithOverdue,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const getTopCustomerStats = async (req, res) => {
+export const getTopCustomerStats = async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -339,16 +339,11 @@ export const getTopCustomerStats = async (req, res) => {
     res.status(200).json(customerStats);
 
   } catch (error) {
-    console.error('Error fetching customer stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error while fetching customer statistics',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    next(error);
   }
 };
 
-export const getSalesTable = async (req, res) => {
+export const getSalesTable = async (req, res, next) => {
   try {
     const sales = await Sales.find()
       .populate("finished_goods.finished_good")
@@ -375,7 +370,7 @@ export const getSalesTable = async (req, res) => {
 };
 
 // MONTHLY SALES & REVENUE STATISTICS
-export const getSalesStatistics = async (req, res) => {
+export const getSalesStatistics = async (req, res, next) => {
   try {
     const monthlySales = await Invoice.aggregate([
       {
@@ -419,6 +414,6 @@ export const getSalesStatistics = async (req, res) => {
 
     res.status(200).json(statistics);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };

@@ -4,8 +4,10 @@ import RawMaterials from "../models/RawMaterials.js";
 import { subMonths, startOfMonth, endOfMonth } from "date-fns";
 import Vendors from "../models/Vendors.js";
 import mongoose from "mongoose";
+import StockHistory from "../models/StockHistory.js";
+import logger from "../utils/logger.js";
 
-export const createPurchaseOrder = async (req, res) => {
+export const createPurchaseOrder = async (req, res, next) => {
   try {
     const {vendor_name, purchasing_date, items} = req.body;
 
@@ -43,15 +45,14 @@ export const createPurchaseOrder = async (req, res) => {
     });
 
     const saved = await newOrder.save();
+    logger.info(`Purchase order created: PRO-${saved.po_number} from vendor ${vendor_name}`);
     res.status(201).json({message: "Purchase order created", order: saved});
   } catch (err) {
-    res
-      .status(500)
-      .json({error: "Failed to create purchase order", details: err.message});
+    next(err);
   }
 };
 
-export const getAllPurchases = async (req, res) => {
+export const getAllPurchases = async (req, res, next) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
@@ -109,11 +110,11 @@ export const getAllPurchases = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    next(err);
   }
 };
 
-export const getPendingPurchases = async (req, res) => {
+export const getPendingPurchases = async (req, res, next) => {
   try {
     const pageNo = parseInt(req.query.page_no) || 1;
     const PAGE_SIZE = 10;
@@ -171,11 +172,11 @@ export const getPendingPurchases = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    next(err);
   }
 };
 
-export const getPurchaseOrderItems = async (req, res) => {
+export const getPurchaseOrderItems = async (req, res, next) => {
   try {
     const {po_number} = req.params;
     const {class_type} = req.query;
@@ -209,11 +210,11 @@ export const getPurchaseOrderItems = async (req, res) => {
       items: resultItems,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    next(err);
   }
 };
 
-export const addStockToPurchaseOrder = async (req, res) => {
+export const addStockToPurchaseOrder = async (req, res, next) => {
   try {
     const {po_id, items} = req.body;
 
@@ -243,7 +244,7 @@ export const addStockToPurchaseOrder = async (req, res) => {
           if (newTotal >= poItem.quantity) {
             poItem.status = PO_ITEM_STATUS.RECIEVED;
           }
-          await RawMaterials.findByIdAndUpdate(
+          const updatedRawMaterial = await RawMaterials.findByIdAndUpdate(
             poItem.raw_material_id,
             {
               $inc: {[incPath]: toAddQuantity},
@@ -251,6 +252,27 @@ export const addStockToPurchaseOrder = async (req, res) => {
             },
             {new: true}
           );
+          
+          if (updatedRawMaterial) {
+            await StockHistory.create({
+              raw_material_id: updatedRawMaterial._id,
+              name: updatedRawMaterial.name,
+              class_type: updatedRawMaterial.class_type,
+              category_type: updatedRawMaterial.type,
+              change_type: "ADD_STOCK",
+              quantity_changed: toAddQuantity,
+              sub_type: poItem.raw_material_id.class_type === "B" ? "unprocessed" : "processed",
+              current_quantity_snapshot: updatedRawMaterial.quantity,
+              reference_text: `PO-${purchaseOrder.po_number}`,
+              purchase_id: purchaseOrder._id,
+              changed_by: req.user ? {
+                user_id: req.user.id,
+                name: req.user.name,
+                user_name: req.user.user_name,
+                email: req.user.email
+              } : undefined
+            });
+          }
         }
       }
     }
@@ -265,17 +287,18 @@ export const addStockToPurchaseOrder = async (req, res) => {
     }
     await purchaseOrder.save();
 
+    logger.info(`Stock added to PO-${purchaseOrder.po_number}. Status: ${purchaseOrder.status}`);
     res.status(200).json({
       message: "Stock updated successfully and raw materials updated",
       status: purchaseOrder.status,
       updated_items: items.length,
     });
   } catch (err) {
-    res.status(500).json({error: err.message});
+    next(err);
   }
 };
 
-export const updatePurchaseOrder = async (req, res) => {
+export const updatePurchaseOrder = async (req, res, next) => {
   try {
     const {id} = req.params;
     const updatedOrder = await Purchase.findByIdAndUpdate(id, req.body, {
@@ -287,13 +310,14 @@ export const updatePurchaseOrder = async (req, res) => {
       return res.status(404).json({error: "Purchase order not found"});
     }
 
+    logger.info(`Purchase order updated: PRO-${updatedOrder.po_number}`);
     res.json(updatedOrder);
   } catch (err) {
-    res.status(500).json({error: "Failed to update purchase order"});
+    next(err);
   }
 };
 
-export const getPurchaseDetails = async (req, res) => {
+export const getPurchaseDetails = async (req, res, next) => {
   try {
     const purchase = await Purchase.findById(req.params.po_id).populate({
       path: "items.raw_material_id",
@@ -327,12 +351,11 @@ export const getPurchaseDetails = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (err) {
-    console.error("Error fetching purchase:", err);
-    return res.status(500).json({error: err.message});
+    next(err);
   }
 };
 
-export const getPurchaseStats = async (req, res) => {
+export const getPurchaseStats = async (req, res, next) => {
   try {
     const now = new Date();
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -484,13 +507,12 @@ export const getPurchaseStats = async (req, res) => {
       total_payable_amount_change: calcPercentage(currentPayable, prevPayable),
     });
   } catch (err) {
-    console.error("Error in getPurchaseStats:", err.message);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
 
-export const getAllVendors = async (req,res) => {
+export const getAllVendors = async (req,res, next) => {
   try {
       const {page, limit = 10, search = ""} = req.query;
       const pageNo = parseInt(page);
@@ -515,14 +537,13 @@ export const getAllVendors = async (req,res) => {
         page_no: pageNo,
         total_pages: Math.ceil(totalItems / pageSize),
         total_items: totalItems,
-      });
+    });
   } catch (err) {
-      console.error("Error fetching Vendors:", err);
-      res.status(500).json({error: "Failed to fetch vendors"});
+    next(err);
   }
 };
 
-export const getAllVendorPurchases = async (req, res) => {
+export const getAllVendorPurchases = async (req, res, next) => {
   try {
     const { id, page, limit = 10 } = req.query;
 
@@ -590,7 +611,6 @@ export const getAllVendorPurchases = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    console.error("Error in getAllVendorPurchases:", err);
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };

@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import logger from "../utils/logger.js";
 import User from "../models/User.js";
 import Customer from "../models/Customers.js";
 import RoutePermission from "../models/RoutePermission.js"; 
@@ -26,11 +27,13 @@ export const register = async (req, res) => {
 
     const route = await RoutePermission.findOne({role});
 
+    logger.info(`User registered: ${user_name}`);
     res.status(201).json({
       message: "User registered successfully.", 
       route,
     });
   } catch (err) {
+    logger.error(`Registration failed: ${err.message}`);
     res.status(500).json({error: "Registration failed", details: err.message});
   }
 };
@@ -67,9 +70,10 @@ export const login = async (req, res) => {
 
     const route = await RoutePermission.findOne({role: user.role});
 
+    logger.info(`User logged in: ${user_name}`);
     res.json({token, route,info});
   } catch (err) {
-    console.log(err)
+    logger.error(`Login failed: ${err.message}`);
     res.status(500).json({error: "Login failed", details: err.message});
   }
 };
@@ -105,10 +109,11 @@ export const updatePassword = async (req, res) => {
     user.password = hashedPassword;
     await user.save();
 
+    logger.info(`Password updated for user: ${user_name}`);
     return res.status(200).json({ success: 'Password updated successfully' });
 
   } catch (error) {
-    console.error('Error updating password:', error);
+    logger.error(`Error updating password: ${error.message}`);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };

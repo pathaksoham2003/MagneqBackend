@@ -1,4 +1,6 @@
 import RawMaterial from "../models/RawMaterials.js";
+import StockHistory from "../models/StockHistory.js";
+import logger from "../utils/logger.js";
 import {
   classHeaders,
   filterFieldsByClass,
@@ -6,17 +8,17 @@ import {
   validateFieldsForUpdate,
 } from "../utils/helper.js";
 
-export const getRawMaterialById = async (req, res) => {
+export const getRawMaterialById = async (req, res, next) => {
   try {
     const material = await RawMaterial.findById(req.params.id);
     if (!material) return res.status(404).json({ error: "Not found" });
     res.json(material);
   } catch (err) {
-    res.status(500).json({ error: "Error fetching raw material" });
+    next(err);
   }
 };
 
-export const getRawMaterialByClassAndId = async (req, res) => {
+export const getRawMaterialByClassAndId = async (req, res, next) => {
   try {
     const { class_type, id } = req.params;
 
@@ -34,12 +36,11 @@ export const getRawMaterialByClassAndId = async (req, res) => {
     }
     res.json(material);
   } catch (err) {
-    console.error("Error fetching raw material:", err);
-    res.status(500).json({ error: "Error fetching raw material" });
+    next(err);
   }
 };
 
-export const getRawMaterialFilterConfig = async (req, res) => {
+export const getRawMaterialFilterConfig = async (req, res, next) => {
   try {
     const config = {
       A: {
@@ -87,12 +88,11 @@ export const getRawMaterialFilterConfig = async (req, res) => {
 
     res.status(200).json(config);
   } catch (e) {
-    console.error("Error building filter config:", e);
-    res.status(500).json({ error: "Failed to fetch filter config" });
+    next(e);
   }
 };
 
-export const getRawMaterialsByClass = async (req, res) => {
+export const getRawMaterialsByClass = async (req, res, next) => {
   try {
     const { class_type } = req.params;
     const { page = 1, limit = 10, search = "", type = "", name = "" } = req.query;
@@ -178,7 +178,6 @@ export const getRawMaterialsByClass = async (req, res) => {
     });
 
     const total_pages = Math.ceil(total_items / limit);
-
     return res.json({
       header,
       item,
@@ -187,13 +186,12 @@ export const getRawMaterialsByClass = async (req, res) => {
       total_items,
     });
   } catch (error) {
-    console.error("Error fetching raw materials:", error);
-    res.status(500).json({ error: "Server error" });
+    next(error);
   }
 };
 
 
-export const getFilteredRawMaterials = async (req, res) => {
+export const getFilteredRawMaterials = async (req, res, next) => {
   try {
     const { class_type, type, model, name } = req.query;
 
@@ -211,11 +209,11 @@ export const getFilteredRawMaterials = async (req, res) => {
 
     res.status(200).json(filteredRawMaterials);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
-export const createRawMaterial = async (req, res) => {
+export const createRawMaterial = async (req, res, next) => {
   try {
     const { class_type } = req.body;
 
@@ -225,13 +223,14 @@ export const createRawMaterial = async (req, res) => {
 
     const material = new RawMaterial(req.body);
     await material.save();
+    logger.info(`Raw Material created: ${material.name} (ID: ${material._id})`);
     res.status(201).json({ message: "Raw material created", material });
   } catch (err) {
-    res.status(400).json({ error: "Creation failed", details: err.message });
+    next(err);
   }
 };
 
-export const updateRawMaterial = async (req, res) => {
+export const updateRawMaterial = async (req, res, next) => {
   try {
     const { class_type } = req.body;
 
@@ -247,6 +246,7 @@ export const updateRawMaterial = async (req, res) => {
       });
     }
 
+    const oldMaterial = await RawMaterial.findById(req.params.id);
     const updated = await RawMaterial.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -255,17 +255,53 @@ export const updateRawMaterial = async (req, res) => {
       }
     );
 
+    if (updated && oldMaterial) {
+      // Check if quantity object has changed
+      if (req.body.quantity) {
+        // Log individual field changes in quantity
+        const oldQty = oldMaterial.quantity || {};
+        const newQty = updated.quantity || {};
+        const fields = Array.from(new Set([...Object.keys(oldQty), ...Object.keys(newQty)]));
+        
+        for (const field of fields) {
+          const oldVal = parseFloat(oldQty[field] || 0);
+          const newVal = parseFloat(newQty[field] || 0);
+          
+          if (oldVal !== newVal) {
+            await StockHistory.create({
+              raw_material_id: updated._id,
+              name: updated.name,
+              class_type: updated.class_type,
+              category_type: updated.type,
+              change_type: "ADMIN_UPDATE",
+              quantity_changed: newVal - oldVal,
+              sub_type: field,
+              current_quantity_snapshot: updated.quantity,
+              reference_text: "Admin Manual Overwrite",
+              changed_by: req.user ? {
+                user_id: req.user.id,
+                name: req.user.name,
+                user_name: req.user.user_name,
+                email: req.user.email
+              } : undefined
+            });
+          }
+        }
+      }
+    }
+
     if (!updated) {
       return res.status(404).json({ error: "Raw material not found" });
     }
 
+    logger.info(`Raw Material updated: ${updated.name} (ID: ${updated._id})`);
     res.json({ message: "Updated successfully", updated });
   } catch (err) {
-    res.status(400).json({ error: "Update failed", details: err.message });
+    next(err);
   }
 };
 
-export const getAllRawMaterials = async (req, res) => {
+export const getAllRawMaterials = async (req, res, next) => {
   try {
     const all = await RawMaterial.find();
 
@@ -284,23 +320,24 @@ export const getAllRawMaterials = async (req, res) => {
 
     res.json(grouped);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch raw materials" });
+    next(err);
   }
 };
 
 // @desc Delete raw material by ID
-export const deleteRawMaterial = async (req, res) => {
+export const deleteRawMaterial = async (req, res, next) => {
   try {
     const deleted = await RawMaterial.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Not found" });
+    logger.info(`Raw Material deleted: ${req.params.id}`);
     res.json({ message: "Deleted successfully" });
   } catch (err) {
-    res.status(400).json({ error: "Delete failed", details: err.message });
+    next(err);
   }
 };
 
 // @desc Get stock statistics for raw materials by class type
-export const getRawMaterialStockStats = async (req, res) => {
+export const getRawMaterialStockStats = async (req, res, next) => {
   try {
     const stats = {
       A: { inStock: 0, lowQuantity: 0, outOfStock: 0 },
@@ -342,12 +379,11 @@ export const getRawMaterialStockStats = async (req, res) => {
 
     res.json(stats);
   } catch (err) {
-    console.error("Error fetching stock stats:", err);
-    res.status(500).json({ error: "Failed to fetch stock statistics" });
+    next(err);
   }
 };
 
-export const transitionQuantity = async (req, res) => {
+export const transitionQuantity = async (req, res, next) => {
   try {
     const { class_type, id } = req.params;
     const { from, to, quantity = 1 } = req.body;
@@ -389,14 +425,33 @@ export const transitionQuantity = async (req, res) => {
     material.markModified('quantity');
     await material.save();
 
+    // Log Stock History for Transition
+    await StockHistory.create({
+      raw_material_id: material._id,
+      name: material.name,
+      class_type: material.class_type,
+      category_type: material.type,
+      change_type: "TRANSITION_UPDATE",
+      quantity_changed: quantity, // The amount moved
+      sub_type: `${from} to ${to}`,
+      current_quantity_snapshot: material.quantity,
+      reference_text: `Transitioning ${from} to ${to}`,
+      changed_by: req.user ? {
+        user_id: req.user.id,
+        name: req.user.name,
+        user_name: req.user.user_name,
+        email: req.user.email
+      } : undefined
+    });
+
+    logger.info(`Raw Material transition: ${id} (${from} -> ${to})`);
     res.json(material);
   } catch (err) {
-    console.error("Error transitioning quantity:", err);
-    res.status(500).json({ error: "Server error" });
+    next(err);
   }
 };
 
-export const getShortRawMaterialsByClass = async (req, res) => {
+export const getShortRawMaterialsByClass = async (req, res, next) => {
   try {
     const { class_type } = req.query;
     const { page = 1 } = req.query;
@@ -464,12 +519,11 @@ export const getShortRawMaterialsByClass = async (req, res) => {
       total_items,
     });
   } catch (error) {
-    console.error("Error fetching short raw materials:", error);
-    res.status(500).json({ error: "Server error" });
+    next(error);
   }
 };
 
-export const incrementRejectedQty = async (req, res) => {
+export const incrementRejectedQty = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { qty, class_type } = req.body;
@@ -498,16 +552,38 @@ export const incrementRejectedQty = async (req, res) => {
       { new: true }
     );
 
+    if (rawMaterial) {
+      // Log Stock History for Rejection
+      await StockHistory.create({
+        raw_material_id: rawMaterial._id,
+        name: rawMaterial.name,
+        class_type: rawMaterial.class_type,
+        category_type: rawMaterial.type,
+        change_type: "TRANSITION_UPDATE", // Log as a transition to rejected
+        quantity_changed: -qty, // Reduction in primary stock
+        sub_type: fromField.split(".").pop(), // "unprocessed" or "processed"
+        current_quantity_snapshot: rawMaterial.quantity,
+        reference_text: "Stock marked as Rejected",
+        changed_by: req.user ? {
+          user_id: req.user.id,
+          name: req.user.name,
+          user_name: req.user.user_name,
+          email: req.user.email
+        } : undefined
+      });
+      // Also log the increase in rejected if needed, but the snapshot covers it.
+    }
+
     if (!rawMaterial) {
       return res.status(400).json({ message: "Insufficient stock or raw material not found" });
     }
 
+    logger.info(`Raw Material marked as rejected: ${id} (Qty: ${qty})`);
     return res.status(200).json({
       message: "Rejected quantity updated successfully",
       data: rawMaterial,
     });
   } catch (error) {
-    console.error("Error updating rejected qty:", error);
-    return res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };

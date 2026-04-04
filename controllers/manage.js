@@ -8,6 +8,7 @@ import {getFgModelNumber} from "../utils/helper.js";
 import Vendors from "../models/Vendors.js";
 import Customers from "../models/Customers.js";
 import bcrypt from "bcrypt";
+import logger from "../utils/logger.js";
 
 const formatPaginatedResponse = (docs, fields, page = 1, pageSize = 20) => {
   const totalItems = docs.length;
@@ -36,7 +37,7 @@ const formatPaginatedResponse = (docs, fields, page = 1, pageSize = 20) => {
   };
 };
 
-export const getUsers = async (req, res) => {
+export const getUsers = async (req, res, next) => {
   try {
     const {page = 1, limit = 20} = req.query;
     const data = await User.find();
@@ -45,11 +46,11 @@ export const getUsers = async (req, res) => {
       .status(200)
       .json(formatPaginatedResponse(data, fields, Number(page), Number(limit)));
   } catch (e) {
-    res.status(400).json(e);
+    next(e);
   }
 };
 
-export const createUser = async (req, res) => {
+export const createUser = async (req, res, next) => {
   try {
     const {name, role, user_name, password,state,pin_code, gst_no, address, phone} = req.body;
 
@@ -105,13 +106,14 @@ export const createUser = async (req, res) => {
 
     const savedUser = await user.save();
     res.status(201).json(savedUser);
+    logger.info(`${role} created: ${name} by ${req.user.user_name}`);
+    res.status(201).json(savedUser);
   } catch (e) {
-    console.log(e);
-    res.status(400).json(e);
+    next(e);
   }
 };
 
-export const getFinishedGoods = async (req, res) => {
+export const getFinishedGoods = async (req, res, next) => {
   try {
     const { model, type, ratio, power, page = 1, limit = 20 } = req.query;
     const userRole = req.user?.role;
@@ -144,12 +146,11 @@ export const getFinishedGoods = async (req, res) => {
       )
     );
   } catch (e) {
-    console.error("Error fetching finished goods:", e);
-    res.status(400).json({ error: e.message });
+    next(e);
   }
 };
 
-export const getRawMaterialsByClass = async (req, res) => {
+export const getRawMaterialsByClass = async (req, res, next) => {
   try {
     const {class_type} = req.params;
     const {page = 1, limit = 20} = req.query;
@@ -177,11 +178,11 @@ export const getRawMaterialsByClass = async (req, res) => {
       .status(200)
       .json(formatPaginatedResponse(processedData, fields, Number(page), Number(limit)));
   } catch (e) {
-    res.status(400).json(e);
+    next(e);
   }
 };
 
-export const getUsersByRole = async (req, res) => {
+export const getUsersByRole = async (req, res, next) => {
   try {
     const {role, page = 1, search = ""} = req.query;
     const PAGE_SIZE = 10;
@@ -287,12 +288,11 @@ export const getUsersByRole = async (req, res) => {
       total_items: totalCount,
     });
   } catch (err) {
-    console.error("Error in getUsersByRole:", err);
-    res.status(500).json({error: "Failed to fetch users by role"});
+    next(err);
   }
 };
 
-export const getAllCustomers = async (req, res) => {
+export const getAllCustomers = async (req, res, next) => {
   try {
     const {page, limit = 10, search = ""} = req.query;
     const pageNo = parseInt(page);
@@ -323,12 +323,11 @@ export const getAllCustomers = async (req, res) => {
       total_items: totalItems,
     });
   } catch (err) {
-    console.error("Error fetching customers:", err);
-    res.status(500).json({error: "Failed to fetch customers"});
+    next(err);
   }
 };
 
-export const getAllVendors = async (req, res) => {
+export const getAllVendors = async (req, res, next) => {
   try {
     const {page, limit = 10, search = ""} = req.query;
     const pageNo = parseInt(page);
@@ -355,12 +354,11 @@ export const getAllVendors = async (req, res) => {
       total_items: totalItems,
     });
   } catch (err) {
-    console.error("Error fetching Vendors:", err);
-    res.status(500).json({error: "Failed to fetch vendors"});
+    next(err);
   }
 };
 
-export const getSupplierById = async (req, res) => {
+export const getSupplierById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const supplier = await Vendor.findById(id);
@@ -371,12 +369,11 @@ export const getSupplierById = async (req, res) => {
     
     res.status(200).json(supplier);
   } catch (err) {
-    console.error("Error fetching supplier:", err);
-    res.status(500).json({ error: "Failed to fetch supplier" });
+    next(err);
   }
 };
 
-export const updateSupplier = async (req, res) => {
+export const updateSupplier = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, phone, address } = req.body;
@@ -395,17 +392,17 @@ export const updateSupplier = async (req, res) => {
       return res.status(404).json({ error: "Supplier not found" });
     }
     
+    logger.info(`Supplier updated: ${name} (${id}) by ${req.user.user_name}`);
     res.status(200).json({
       message: "Supplier updated successfully",
       supplier: updatedSupplier
     });
   } catch (err) {
-    console.error("Error updating supplier:", err);
-    res.status(500).json({ error: "Failed to update supplier" });
+    next(err);
   }
 };
 
-export const getCustomerById = async (req, res) => {
+export const getCustomerById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const customer = await Customer.findById(id);
@@ -416,12 +413,11 @@ export const getCustomerById = async (req, res) => {
     
     res.status(200).json(customer);
   } catch (err) {
-    console.error("Error fetching customer:", err);
-    res.status(500).json({ error: "Failed to fetch customer" });
+    next(err);
   }
 };
 
-export const updateCustomer = async (req, res) => {
+export const updateCustomer = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, address, pin_code, state, gst_no, phone } = req.body;
@@ -448,17 +444,17 @@ export const updateCustomer = async (req, res) => {
       return res.status(404).json({ error: "Customer not found" });
     }
     
+    logger.info(`Customer updated: ${name} (${id}) by ${req.user.user_name}`);
     res.status(200).json({
       message: "Customer updated successfully",
       customer: updatedCustomer
     });
   } catch (err) {
-    console.error("Error updating customer:", err);
-    res.status(500).json({ error: "Failed to update customer" });
+    next(err);
   }
 };
 
-export const getUserById = async (req, res) => {
+export const getUserById = async (req, res, next) => {
   try {
     const { id } = req.params;
     const user = await User.findById(id);
@@ -469,12 +465,11 @@ export const getUserById = async (req, res) => {
     
     res.status(200).json(user);
   } catch (err) {
-    console.error("Error fetching user:", err);
-    res.status(500).json({ error: "Failed to fetch user" });
+    next(err);
   }
 };
 
-export const updateUser = async (req, res) => {
+export const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, role } = req.body;
@@ -497,12 +492,12 @@ export const updateUser = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
     
+    logger.info(`User updated: ${name} (${id}) by ${req.user.user_name}`);
     res.status(200).json({
       message: "User updated successfully",
       user: updatedUser
     });
   } catch (err) {
-    console.error("Error updating user:", err);
-    res.status(500).json({ error: "Failed to update user" });
+    next(err);
   }
 };

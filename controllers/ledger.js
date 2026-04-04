@@ -4,6 +4,7 @@ import Ledger from "../models/Ledger.js";
 import Customer from "../models/Customers.js";
 import Transaction from "../models/Transaction.js";
 import mongoose from "mongoose";
+import logger from "../utils/logger.js";
 import { generateLedgerHTML } from "../utils/ledgerTemplate.js";
 import { getLastRunningBalance } from "../utils/ledgerUtils.js";
 
@@ -85,7 +86,7 @@ export const getLedgerData = async (customerId, startDate, endDate) => {
 /**
  * 🔹 Ledger API (JSON Response)
  */
-export const getLedger = async (req, res) => {
+export const getLedger = async (req, res, next) => {
   try {
     const { customerId, startDate, endDate } = req.body;
     if (!customerId || !startDate || !endDate) {
@@ -98,18 +99,14 @@ export const getLedger = async (req, res) => {
 
     return res.json(ledgerData);
   } catch (err) {
-    console.error("Error fetching ledger:", err);
-    return res.status(500).json({
-      message: "Server error",
-      error: err.message,
-    });
+    next(err);
   }
 };
 
 /**
  * 🔹 Generate Ledger PDF using Puppeteer
  */
-export const generateLedgerPDF = async (req, res) => {
+export const generateLedgerPDF = async (req, res, next) => {
   try {
     const { customerId, startDate, endDate } = req.query;
 
@@ -166,18 +163,14 @@ export const generateLedgerPDF = async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generating ledger PDF:", error);
-    res.status(500).json({
-      message: "Error generating ledger PDF",
-      error: error.message,
-    });
+    next(error);
   }
 };
 
 /**
  * Get first and last ledger entry dates for a customer
  */
-export const getLedgerDateRange = async (req, res) => {
+export const getLedgerDateRange = async (req, res, next) => {
   try {
     const { customerId } = req.params;
 
@@ -201,11 +194,7 @@ export const getLedgerDateRange = async (req, res) => {
       hasEntries: !!firstEntry,
     });
   } catch (error) {
-    console.error("Error fetching ledger date range:", error);
-    res.status(500).json({
-      message: "Error fetching ledger date range",
-      error: error.message,
-    });
+    next(error);
   }
 };
 
@@ -214,7 +203,7 @@ export const getLedgerDateRange = async (req, res) => {
  * If no ledger entries exist, create the first entry
  * If entries exist, the new entry must be before the first entry OR after the last entry
  */
-export const createOpeningBalance = async (req, res) => {
+export const createOpeningBalance = async (req, res, next) => {
   try {
     const { customerId, date, creditAmount, debitAmount, description } = req.body;
 
@@ -380,15 +369,12 @@ export const createOpeningBalance = async (req, res) => {
       entries.push(debitEntry);
     }
 
+    logger.info(`Opening balance created for customer ${customer.name} by ${req.user.user_name}. Entries: ${entries.length}`);
     res.status(201).json({
       message: "Opening balance entries created successfully",
       entries,
     });
   } catch (error) {
-    console.error("Error creating opening balance:", error);
-    res.status(500).json({
-      message: "Error creating opening balance",
-      error: error.message,
-    });
+    next(error);
   }
 };
